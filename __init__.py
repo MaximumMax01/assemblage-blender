@@ -1,23 +1,34 @@
+import glob
+import os
 import queue
 import threading
 
 import bpy
 
-from . import search
+from . import download, search
 
 # ---------------------------------------------------------------- #
 # Background work: the worker thread and the main-thread timer
 # ---------------------------------------------------------------- #
 
-_results = queue.Queue()  # the "counter" where the worker leaves finished work
+_results = queue.Queue()  # the "counter" where the worker leaves messages
 _worker = None            # the running search thread, if any
 
 
-def _search_worker(prompt, out):
+def _search_worker(prompt, folder, out):
     """Runs on a background thread. Must never touch bpy."""
     try:
+        for old in glob.glob(os.path.join(folder, "*.jpg")) + glob.glob(os.path.join(folder, "*.png")):
+            os.remove(old)  # clear the previous search's images
+
+        out.put(("progress", f"Searching for '{prompt}'..."))
         hits = search.search_wikimedia(prompt)
-        out.put(("done", hits))
+
+        def report(n, total):
+            out.put(("progress", f"Downloading {n}/{total}..."))
+
+        downloaded, failed = download.download_all(hits, folder, on_progress=report)
+        out.put(("done", (downloaded, len(failed))))
     except Exception as exc:
         out.put(("error", f"{type(exc).__name__}: {exc}"))
 
@@ -30,25 +41,37 @@ def _redraw_sidebars():
 
 
 def _poll_results():
-    """Runs on the main thread, every 0.1 s, until the worker reports back."""
-    try:
-        kind, payload = _results.get_nowait()
-    except queue.Empty:
-        return 0.1  # nothing yet: check again in 0.1 s
-
+    """Runs on the main thread every 0.1 s. Reads ALL waiting messages."""
     state = bpy.context.window_manager.assemblage
-    state.is_searching = False
-    if kind == "error":
-        state.status = f"Search failed: {payload}"
-    else:
-        state.results.clear()
-        for hit in payload:
-            item = state.results.add()
-            item.title = hit["title"].removeprefix("File:")
-            item.url = hit["url"]
-        state.status = f"{len(payload)} results"
+    finished = False
+
+    while True:
+        try:
+            kind, payload = _results.get_nowait()
+        except queue.Empty:
+            break  # queue is empty: stop reading for this tick
+
+        if kind == "progress":
+            state.status = payload
+        elif kind == "error":
+            state.status = f"Search failed: {payload}"
+            finished = True
+        elif kind == "done":
+            downloaded, n_failed = payload
+            state.results.clear()
+            for hit in downloaded:
+                item = state.results.add()
+                item.title = hit["title"].removeprefix("File:")
+                item.url = hit["url"]
+                item.path = hit["path"]
+            state.status = f"{len(downloaded)} images downloaded, {n_failed} failed"
+            finished = True
+
     _redraw_sidebars()
-    return None  # returning None stops the timer
+    if finished:
+        state.is_searching = False
+        return None  # stop the timer
+    return 0.1       # check again in 0.1 s
 
 # ---------------------------------------------------------------- #
 # Properties: where the panel's data lives
@@ -57,6 +80,7 @@ def _poll_results():
 class ASSEMBLAGE_PG_result(bpy.types.PropertyGroup):
     title: bpy.props.StringProperty()
     url: bpy.props.StringProperty()
+    path: bpy.props.StringProperty()
 
 
 class ASSEMBLAGE_PG_state(bpy.types.PropertyGroup):
@@ -97,9 +121,11 @@ class ASSEMBLAGE_OT_search(bpy.types.Operator):
 
         state.is_searching = True
         state.status = f"Searching for '{prompt}'..."
-        # Pass a plain copy of the prompt: the worker can't read Blender data.
+        # The worker can't call bpy, so the main thread looks up the folder
+        # and hands over plain strings.
+        folder = bpy.utils.extension_path_user(__package__, path="cache", create=True)
         _worker = threading.Thread(target=_search_worker,
-                                   args=(prompt, _results), daemon=True)
+                                   args=(prompt, folder, _results), daemon=True)
         _worker.start()
         bpy.app.timers.register(_poll_results, first_interval=0.1)
         return {'FINISHED'}
