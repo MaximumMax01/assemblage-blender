@@ -4,6 +4,7 @@ import queue
 import threading
 
 import bpy
+import bpy.utils.previews
 
 from . import download, filters, search
 
@@ -13,6 +14,7 @@ from . import download, filters, search
 
 _results = queue.Queue()  # the "counter" where the worker leaves messages
 _worker = None            # the running search thread, if any
+_previews = None          # thumbnail collection (main thread only)
 
 
 def _search_worker(prompt, folder, out):
@@ -67,6 +69,7 @@ def _poll_results():
                 item.title = hit["title"].removeprefix("File:")
                 item.url = hit["url"]
                 item.path = hit["path"]
+                _previews.load(item.path, item.path, 'IMAGE')  # key = file path
             state.status = (f"{len(kept)} kept, {n_rejected} filtered out, "
                             f"{n_failed} failed to download")
             finished = True
@@ -77,6 +80,7 @@ def _poll_results():
         return None  # stop the timer
     return 0.1       # check again in 0.1 s
 
+
 # ---------------------------------------------------------------- #
 # Properties: where the panel's data lives
 # ---------------------------------------------------------------- #
@@ -85,6 +89,7 @@ class ASSEMBLAGE_PG_result(bpy.types.PropertyGroup):
     title: bpy.props.StringProperty()
     url: bpy.props.StringProperty()
     path: bpy.props.StringProperty()
+    selected: bpy.props.BoolProperty(name="Use", default=False)
 
 
 class ASSEMBLAGE_PG_state(bpy.types.PropertyGroup):
@@ -123,6 +128,10 @@ class ASSEMBLAGE_OT_search(bpy.types.Operator):
             self.report({'WARNING'}, "A search is already running")
             return {'CANCELLED'}
 
+        # Let go of the old thumbnails BEFORE the worker deletes their files.
+        state.results.clear()
+        _previews.clear()
+
         state.is_searching = True
         state.status = f"Searching for '{prompt}'..."
         # The worker can't call bpy, so the main thread looks up the folder
@@ -157,9 +166,19 @@ class ASSEMBLAGE_PT_main(bpy.types.Panel):
 
         if state.status:
             layout.label(text=state.status)
-        col = layout.column(align=True)
+        if not state.results:
+            return
+
+        n_selected = sum(item.selected for item in state.results)
+        layout.label(text=f"{n_selected} of {len(state.results)} selected")
+
+        grid = layout.grid_flow(columns=2, even_columns=True, align=False)
         for item in state.results:
-            col.label(text=item.title)
+            cell = grid.column(align=True)
+            preview = _previews.get(item.path)
+            if preview is not None:
+                cell.template_icon(icon_value=preview.icon_id, scale=6.0)
+            cell.prop(item, "selected", text=item.title[:24])
 
 
 classes = (
@@ -171,14 +190,19 @@ classes = (
 
 
 def register():
+    global _previews
+    _previews = bpy.utils.previews.new()
     for cls in classes:
         bpy.utils.register_class(cls)
     bpy.types.WindowManager.assemblage = bpy.props.PointerProperty(type=ASSEMBLAGE_PG_state)
 
 
 def unregister():
+    global _previews
     if bpy.app.timers.is_registered(_poll_results):
         bpy.app.timers.unregister(_poll_results)
     del bpy.types.WindowManager.assemblage
     for cls in reversed(classes):
         bpy.utils.unregister_class(cls)
+    bpy.utils.previews.remove(_previews)
+    _previews = None
