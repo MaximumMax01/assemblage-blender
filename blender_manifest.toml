@@ -9,7 +9,7 @@ type = "add-on"
 platforms = ["windows-x64"]
 wheels = ["./wheels/pillow-12.3.0-cp313-cp313-win_amd64.whl"]
 
-blender_version_min = "4.2.0"
+blender_version_min = "5.2.0"
 
 license = ["SPDX:GPL-3.0-or-later"]
 

@@ -5,7 +5,7 @@ import threading
 
 import bpy
 
-from . import download, search
+from . import download, filters, search
 
 # ---------------------------------------------------------------- #
 # Background work: the worker thread and the main-thread timer
@@ -28,7 +28,10 @@ def _search_worker(prompt, folder, out):
             out.put(("progress", f"Downloading {n}/{total}..."))
 
         downloaded, failed = download.download_all(hits, folder, on_progress=report)
-        out.put(("done", (downloaded, len(failed))))
+
+        out.put(("progress", f"Checking {len(downloaded)} images..."))
+        kept, rejected = filters.filter_all(downloaded)
+        out.put(("done", (kept, len(failed), len(rejected))))
     except Exception as exc:
         out.put(("error", f"{type(exc).__name__}: {exc}"))
 
@@ -57,14 +60,15 @@ def _poll_results():
             state.status = f"Search failed: {payload}"
             finished = True
         elif kind == "done":
-            downloaded, n_failed = payload
+            kept, n_failed, n_rejected = payload
             state.results.clear()
-            for hit in downloaded:
+            for hit in kept:
                 item = state.results.add()
                 item.title = hit["title"].removeprefix("File:")
                 item.url = hit["url"]
                 item.path = hit["path"]
-            state.status = f"{len(downloaded)} images downloaded, {n_failed} failed"
+            state.status = (f"{len(kept)} kept, {n_rejected} filtered out, "
+                            f"{n_failed} failed to download")
             finished = True
 
     _redraw_sidebars()
