@@ -2,6 +2,8 @@ import glob
 import os
 import queue
 import threading
+import subprocess
+import sys
 
 import bpy
 import bpy.utils.previews
@@ -143,6 +145,33 @@ class ASSEMBLAGE_OT_search(bpy.types.Operator):
         bpy.app.timers.register(_poll_results, first_interval=0.1)
         return {'FINISHED'}
 
+class ASSEMBLAGE_OT_view_image(bpy.types.Operator):
+    bl_idname = "assemblage.view_image"
+    bl_label = "View Image"
+    bl_description = "Open this image full size in your system's image viewer"
+
+    path: bpy.props.StringProperty(options={'HIDDEN', 'SKIP_SAVE'})
+
+    def execute(self, context):
+        cache = bpy.utils.extension_path_user(__package__, path="cache")
+        path = os.path.abspath(self.path)
+        # Only open our own downloaded images, never an arbitrary file.
+        inside_cache = os.path.commonpath([path, os.path.abspath(cache)]) == os.path.abspath(cache)
+        if not (inside_cache and path.lower().endswith((".jpg", ".png")) and os.path.isfile(path)):
+            self.report({'ERROR'}, "Can only open downloaded reference images")
+            return {'CANCELLED'}
+        try:
+            if sys.platform == "win32":
+                os.startfile(path)
+            elif sys.platform == "darwin":
+                subprocess.Popen(["open", path])
+            else:
+                subprocess.Popen(["xdg-open", path])
+        except OSError as exc:
+            self.report({'ERROR'}, f"Couldn't open image: {exc}")
+            return {'CANCELLED'}
+        return {'FINISHED'}
+
 
 # ---------------------------------------------------------------- #
 # Panel: what the sidebar shows
@@ -178,13 +207,17 @@ class ASSEMBLAGE_PT_main(bpy.types.Panel):
             preview = _previews.get(item.path)
             if preview is not None:
                 cell.template_icon(icon_value=preview.icon_id, scale=6.0)
-            cell.prop(item, "selected", text=item.title[:24])
+            row = cell.row(align=True)
+            row.prop(item, "selected", text=item.title[:20])
+            op = row.operator("assemblage.view_image", text="", icon='IMAGE_DATA')
+            op.path = item.path
 
 
 classes = (
     ASSEMBLAGE_PG_result,  # before state, because state's collection uses it
     ASSEMBLAGE_PG_state,
     ASSEMBLAGE_OT_search,
+    ASSEMBLAGE_OT_view_image,
     ASSEMBLAGE_PT_main,
 )
 

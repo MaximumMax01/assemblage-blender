@@ -1,0 +1,23 @@
+Assemblage is licensed under GPL-3.0-or-later and bundles third-party code
+under compatible licenses.
+
+--------------------------------------------------------------------------------
+purformat  (purformat/)
+--------------------------------------------------------------------------------
+
+The .pur reader/writer in purformat/ is taken from the PureRef-format
+project by Fyor, which reverse engineered the PureRef binary format:
+
+    https://github.com/FyorDev/PureRef-format
+
+It is used unmodified and is licensed under the MIT License. The full upstream
+licence text is preserved at purformat/LICENSE.
+
+    MIT License
+    Copyright (c) 2023 Fyor
+
+The row-packing layout algorithm in board.py is adapted from the
+`pureref_gen.py` example in the same project.
+
+Assemblage would not exist without this work. Writing a .pur file at all depends
+entirely on Fyor having decoded the format first.
