@@ -1,14 +1,14 @@
 import glob
 import os
 import queue
-import threading
 import subprocess
 import sys
+import threading
 
 import bpy
 import bpy.utils.previews
 
-from . import download, filters, search
+from . import board, download, filters, scene_board, search
 
 # ---------------------------------------------------------------- #
 # Background work: the worker thread and the main-thread timer
@@ -40,6 +40,25 @@ def _search_worker(prompt, folder, out):
         out.put(("error", f"{type(exc).__name__}: {exc}"))
 
 
+def _board_worker(entries, output_path, out):
+    """Runs on a background thread: writes the .pur file. Must never touch bpy."""
+    try:
+        board.build_board(entries, output_path)
+        out.put(("board_done", output_path))
+    except Exception as exc:
+        out.put(("error", f"{type(exc).__name__}: {exc}"))
+
+
+def _open_in_system(path):
+    """Open a file with the operating system's default app for its type."""
+    if sys.platform == "win32":
+        os.startfile(path)
+    elif sys.platform == "darwin":
+        subprocess.Popen(["open", path])
+    else:
+        subprocess.Popen(["xdg-open", path])
+
+
 def _redraw_sidebars():
     for window in bpy.context.window_manager.windows:
         for area in window.screen.areas:
@@ -61,7 +80,14 @@ def _poll_results():
         if kind == "progress":
             state.status = payload
         elif kind == "error":
-            state.status = f"Search failed: {payload}"
+            state.status = f"Failed: {payload}"
+            finished = True
+        elif kind == "board_done":
+            state.status = f"Board saved: {os.path.basename(payload)}"
+            try:
+                _open_in_system(payload)
+            except OSError as exc:
+                state.status = f"Board saved, but couldn't open PureRef: {exc}"
             finished = True
         elif kind == "done":
             kept, n_failed, n_rejected = payload
@@ -103,6 +129,7 @@ class ASSEMBLAGE_PG_state(bpy.types.PropertyGroup):
     status: bpy.props.StringProperty(default="")
     is_searching: bpy.props.BoolProperty(default=False)
     results: bpy.props.CollectionProperty(type=ASSEMBLAGE_PG_result)
+    previous_scene: bpy.props.StringProperty(default="")
 
 
 # ---------------------------------------------------------------- #
@@ -145,6 +172,7 @@ class ASSEMBLAGE_OT_search(bpy.types.Operator):
         bpy.app.timers.register(_poll_results, first_interval=0.1)
         return {'FINISHED'}
 
+
 class ASSEMBLAGE_OT_view_image(bpy.types.Operator):
     bl_idname = "assemblage.view_image"
     bl_label = "View Image"
@@ -153,23 +181,100 @@ class ASSEMBLAGE_OT_view_image(bpy.types.Operator):
     path: bpy.props.StringProperty(options={'HIDDEN', 'SKIP_SAVE'})
 
     def execute(self, context):
-        cache = bpy.utils.extension_path_user(__package__, path="cache")
+        cache = os.path.abspath(bpy.utils.extension_path_user(__package__, path="cache"))
         path = os.path.abspath(self.path)
         # Only open our own downloaded images, never an arbitrary file.
-        inside_cache = os.path.commonpath([path, os.path.abspath(cache)]) == os.path.abspath(cache)
+        inside_cache = os.path.commonpath([path, cache]) == cache
         if not (inside_cache and path.lower().endswith((".jpg", ".png")) and os.path.isfile(path)):
             self.report({'ERROR'}, "Can only open downloaded reference images")
             return {'CANCELLED'}
         try:
-            if sys.platform == "win32":
-                os.startfile(path)
-            elif sys.platform == "darwin":
-                subprocess.Popen(["open", path])
-            else:
-                subprocess.Popen(["xdg-open", path])
+            _open_in_system(path)
         except OSError as exc:
             self.report({'ERROR'}, f"Couldn't open image: {exc}")
             return {'CANCELLED'}
+        return {'FINISHED'}
+
+
+def _selected_entries(state):
+    """(path, label, url) for every ticked image, in picker order."""
+    return [(item.path, "picks", item.url) for item in state.results if item.selected]
+
+
+def _safe_filename(text):
+    cleaned = "".join(c if c.isalnum() or c in " -_" else "_" for c in text).strip()
+    return (cleaned or "board").replace(" ", "_")[:60]
+
+
+class ASSEMBLAGE_OT_board_pureref(bpy.types.Operator):
+    bl_idname = "assemblage.board_pureref"
+    bl_label = "Send to PureRef"
+    bl_description = "Save the selected images as a PureRef board and open it"
+
+    def execute(self, context):
+        global _worker
+        state = context.window_manager.assemblage
+        entries = _selected_entries(state)
+        if not entries:
+            self.report({'WARNING'}, "Tick at least one image first")
+            return {'CANCELLED'}
+        if _worker is not None and _worker.is_alive():
+            self.report({'WARNING'}, "Still working on the last task")
+            return {'CANCELLED'}
+
+        # Next to the .blend if it's been saved; otherwise in our own folder.
+        if bpy.data.filepath:
+            folder = os.path.dirname(bpy.data.filepath)
+        else:
+            folder = bpy.utils.extension_path_user(__package__, path="boards", create=True)
+        output_path = os.path.join(folder, _safe_filename(state.prompt) + ".pur")
+
+        state.is_searching = True
+        state.status = f"Writing board with {len(entries)} images..."
+        _worker = threading.Thread(target=_board_worker,
+                                   args=(entries, output_path, _results), daemon=True)
+        _worker.start()
+        bpy.app.timers.register(_poll_results, first_interval=0.1)
+        return {'FINISHED'}
+
+
+class ASSEMBLAGE_OT_board_blender(bpy.types.Operator):
+    bl_idname = "assemblage.board_blender"
+    bl_label = "Send to Blender"
+    bl_description = "Lay out the selected images in a separate reference scene"
+    bl_options = {'REGISTER', 'UNDO'}
+
+    def execute(self, context):
+        state = context.window_manager.assemblage
+        entries = _selected_entries(state)
+        if not entries:
+            self.report({'WARNING'}, "Tick at least one image first")
+            return {'CANCELLED'}
+
+        ref_scene, center, size = scene_board.build_scene_board(
+            entries, state.prompt.strip() or "References")
+
+        if context.window is not None:
+            if context.window.scene != ref_scene:
+                state.previous_scene = context.window.scene.name
+            context.window.scene = ref_scene
+            scene_board.frame_top_view(context.window.screen, center, size)
+        self.report({'INFO'}, f"Added {len(entries)} images to '{ref_scene.name}'")
+        return {'FINISHED'}
+
+
+class ASSEMBLAGE_OT_back_to_scene(bpy.types.Operator):
+    bl_idname = "assemblage.back_to_scene"
+    bl_label = "Back to My Scene"
+    bl_description = "Return to the scene you were working in"
+
+    def execute(self, context):
+        state = context.window_manager.assemblage
+        scene = bpy.data.scenes.get(state.previous_scene)
+        if scene is None:
+            self.report({'WARNING'}, "Couldn't find your previous scene")
+            return {'CANCELLED'}
+        context.window.scene = scene
         return {'FINISHED'}
 
 
@@ -189,8 +294,11 @@ class ASSEMBLAGE_PT_main(bpy.types.Panel):
         layout = self.layout
         layout.prop(state, "prompt")
 
+        if context.scene.name == scene_board.SCENE_NAME and state.previous_scene:
+            layout.operator("assemblage.back_to_scene", icon='LOOP_BACK')
+
         row = layout.row()
-        row.enabled = not state.is_searching  # grey out while searching
+        row.enabled = not state.is_searching  # grey out while busy
         row.operator("assemblage.search", icon='VIEWZOOM')
 
         if state.status:
@@ -200,6 +308,11 @@ class ASSEMBLAGE_PT_main(bpy.types.Panel):
 
         n_selected = sum(item.selected for item in state.results)
         layout.label(text=f"{n_selected} of {len(state.results)} selected")
+
+        row = layout.row(align=True)
+        row.enabled = n_selected > 0 and not state.is_searching
+        row.operator("assemblage.board_pureref", icon='EXPORT')
+        row.operator("assemblage.board_blender", icon='IMAGE_REFERENCE')
 
         grid = layout.grid_flow(columns=2, even_columns=True, align=False)
         for item in state.results:
@@ -218,6 +331,9 @@ classes = (
     ASSEMBLAGE_PG_state,
     ASSEMBLAGE_OT_search,
     ASSEMBLAGE_OT_view_image,
+    ASSEMBLAGE_OT_board_pureref,
+    ASSEMBLAGE_OT_board_blender,
+    ASSEMBLAGE_OT_back_to_scene,
     ASSEMBLAGE_PT_main,
 )
 

@@ -9,17 +9,17 @@ from io import BytesIO
 from PIL import Image
 
 try:
-    from .purformat import items            # inside Blender (as part of the package)
+    from .layout import justified_rows      # inside Blender (as part of the package)
+    from .purformat import items
     from .purformat.purformat import PurFile
+    from .purformat.write import write_pur_file
 except ImportError:
-    from purformat import items             # run directly from PowerShell
+    from layout import justified_rows       # run directly from PowerShell
+    from purformat import items
     from purformat.purformat import PurFile
+    from purformat.write import write_pur_file
 
-MAX_EDGE = 1400      # downscale bigger images so the .pur file stays a sane size
-ROW_HEIGHT = 1000    # every image starts this tall (PureRef canvas units)
-CANVAS_WIDTH = 4000  # full rows are scaled to exactly this width
-GAP = 40             # space between images, and between rows
-GROUP_GAP = 200      # extra space between groups (used again once slots return)
+MAX_EDGE = 1400  # downscale bigger images so the .pur file stays a sane size
 
 
 def _to_pur_image(path, name, source):
@@ -45,43 +45,6 @@ def _to_pur_image(path, name, source):
     return pur_image
 
 
-def pack_rows(groups):
-    """Justified rows: full rows span CANVAS_WIDTH; short rows are never enlarged.
-
-    Each group starts on a new row. PureRef positions items by their centre.
-    """
-    y = 0.0
-    for g_index, group in enumerate(groups):
-        for t in group:
-            t.scale_to_height(ROW_HEIGHT)
-
-        rows, current = [], []
-        for t in group:
-            current.append(t)
-            span = sum(x.width for x in current) + GAP * (len(current) - 1)
-            if span >= CANVAS_WIDTH:   # row is full: close it
-                rows.append(current)
-                current = []
-        if current:
-            rows.append(current)
-
-        for row in rows:
-            content = sum(t.width for t in row)
-            available = CANVAS_WIDTH - GAP * (len(row) - 1)
-            scale = min(1.0, available / content) if content > 0 else 1.0
-            x, height = 0.0, 0.0
-            for t in row:
-                t.scale(scale)
-                t.x = x + t.width / 2
-                t.y = y + t.height / 2
-                x += t.width + GAP
-                height = max(height, t.height)
-            y += height + GAP
-
-        if g_index < len(groups) - 1:
-            y += GROUP_GAP
-
-
 def build_board(entries, output_path):
     """Write a .pur board from (path, label, source_url) entries, in order.
 
@@ -94,16 +57,20 @@ def build_board(entries, output_path):
     pur_file.images = [_to_pur_image(path, f"{label} - {url}"[:200], url)
                        for path, label, url in entries]
 
-    groups, last_label = [], None
+    aspects = []
     for (path, label, url), image in zip(entries, pur_file.images):
-        if label != last_label:
-            groups.append([])
-            last_label = label
-        groups[-1].extend(image.transforms)
-    pack_rows(groups)
+        t = image.transforms[0]
+        aspects.append((t.width / t.height, label))
+    for image, (cx, cy, w, h) in zip(pur_file.images, justified_rows(aspects)):
+        t = image.transforms[0]
+        t.scale_to_height(h)
+        t.x, t.y = cx, cy  # PureRef positions items by their centre
 
     os.makedirs(os.path.dirname(os.path.abspath(output_path)), exist_ok=True)
-    pur_file.write(output_path)
+    # Not pur_file.write(): that method does `from purformat.write import ...`,
+    # an absolute import that only works when purformat's parent folder is on
+    # sys.path. Inside Blender it isn't, so we call the writer directly.
+    write_pur_file(pur_file, output_path)
     return output_path
 
 

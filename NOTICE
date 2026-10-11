@@ -16,7 +16,7 @@ licence text is preserved at purformat/LICENSE.
     MIT License
     Copyright (c) 2023 Fyor
 
-The row-packing layout algorithm in board.py is adapted from the
+The row-packing layout algorithm in layout.py is adapted from the
 `pureref_gen.py` example in the same project.
 
 Assemblage would not exist without this work. Writing a .pur file at all depends
