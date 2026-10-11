@@ -129,7 +129,6 @@ class ASSEMBLAGE_PG_state(bpy.types.PropertyGroup):
     status: bpy.props.StringProperty(default="")
     is_searching: bpy.props.BoolProperty(default=False)
     results: bpy.props.CollectionProperty(type=ASSEMBLAGE_PG_result)
-    previous_scene: bpy.props.StringProperty(default="")
 
 
 # ---------------------------------------------------------------- #
@@ -238,10 +237,14 @@ class ASSEMBLAGE_OT_board_pureref(bpy.types.Operator):
         return {'FINISHED'}
 
 
+def _in_viewport(context):
+    return context.area is not None and context.area.type == 'VIEW_3D'
+
+
 class ASSEMBLAGE_OT_board_blender(bpy.types.Operator):
     bl_idname = "assemblage.board_blender"
     bl_label = "Send to Blender"
-    bl_description = "Lay out the selected images in a separate reference scene"
+    bl_description = "Lay out the selected images as references, far from your model"
     bl_options = {'REGISTER', 'UNDO'}
 
     def execute(self, context):
@@ -251,32 +254,39 @@ class ASSEMBLAGE_OT_board_blender(bpy.types.Operator):
             self.report({'WARNING'}, "Tick at least one image first")
             return {'CANCELLED'}
 
-        ref_scene, center, size = scene_board.build_scene_board(
-            entries, state.prompt.strip() or "References")
-
-        if context.window is not None:
-            if context.window.scene != ref_scene:
-                state.previous_scene = context.window.scene.name
-            context.window.scene = ref_scene
-            scene_board.frame_top_view(context.window.screen, center, size)
-        self.report({'INFO'}, f"Added {len(entries)} images to '{ref_scene.name}'")
+        bounds = scene_board.build_scene_board(
+            context.scene, entries, state.prompt.strip() or "References")
+        if _in_viewport(context):
+            scene_board.go_to_refs(context.area, bounds)
+        self.report({'INFO'}, f"Added {len(entries)} reference images")
         return {'FINISHED'}
 
 
-class ASSEMBLAGE_OT_back_to_scene(bpy.types.Operator):
-    bl_idname = "assemblage.back_to_scene"
-    bl_label = "Back to My Scene"
-    bl_description = "Return to the scene you were working in"
+class ASSEMBLAGE_OT_go_to_refs(bpy.types.Operator):
+    bl_idname = "assemblage.go_to_refs"
+    bl_label = "Go to References"
+    bl_description = "Point this viewport at your reference boards"
 
     def execute(self, context):
-        state = context.window_manager.assemblage
-        scene = bpy.data.scenes.get(state.previous_scene)
-        if scene is None:
-            self.report({'WARNING'}, "Couldn't find your previous scene")
+        collection = bpy.data.collections.get(scene_board.COLLECTION_NAME)
+        bounds = scene_board.ref_bounds(collection) if collection else None
+        if bounds is None or not _in_viewport(context):
+            self.report({'WARNING'}, "No reference boards in this file yet")
             return {'CANCELLED'}
-        context.window.scene = scene
+        scene_board.go_to_refs(context.area, bounds)
         return {'FINISHED'}
 
+
+class ASSEMBLAGE_OT_back_to_model(bpy.types.Operator):
+    bl_idname = "assemblage.back_to_model"
+    bl_label = "Back to Model"
+    bl_description = "Return this viewport to where it was"
+
+    def execute(self, context):
+        if not (_in_viewport(context) and scene_board.back_to_model(context.area)):
+            self.report({'WARNING'}, "Nothing to go back to")
+            return {'CANCELLED'}
+        return {'FINISHED'}
 
 # ---------------------------------------------------------------- #
 # Panel: what the sidebar shows
@@ -294,8 +304,10 @@ class ASSEMBLAGE_PT_main(bpy.types.Panel):
         layout = self.layout
         layout.prop(state, "prompt")
 
-        if context.scene.name == scene_board.SCENE_NAME and state.previous_scene:
-            layout.operator("assemblage.back_to_scene", icon='LOOP_BACK')
+        if context.area is not None and scene_board.is_at_refs(context.area):
+            layout.operator("assemblage.back_to_model", icon='LOOP_BACK')
+        elif bpy.data.collections.get(scene_board.COLLECTION_NAME):
+            layout.operator("assemblage.go_to_refs", icon='IMAGE_REFERENCE')
 
         row = layout.row()
         row.enabled = not state.is_searching  # grey out while busy
@@ -333,7 +345,8 @@ classes = (
     ASSEMBLAGE_OT_view_image,
     ASSEMBLAGE_OT_board_pureref,
     ASSEMBLAGE_OT_board_blender,
-    ASSEMBLAGE_OT_back_to_scene,
+    ASSEMBLAGE_OT_go_to_refs,
+    ASSEMBLAGE_OT_back_to_model,
     ASSEMBLAGE_PT_main,
 )
 

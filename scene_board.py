@@ -1,4 +1,4 @@
-"""Build a reference board inside Blender, in its own scene.
+"""Build reference boards inside the user's own scene, far from their work.
 
 Uses bpy, so MAIN THREAD ONLY. Shares its layout math with the PureRef board.
 """
@@ -10,27 +10,37 @@ from PIL import Image
 
 from .layout import justified_rows
 
-SCENE_NAME = "Assemblage References"
-UNIT = 1 / 1000     # 1000 canvas units = 1 Blender unit, so each row is ~1 m tall
-BOARD_SPACING = 0.5  # gap between boards stacked in the same scene
+COLLECTION_NAME = "Assemblage References"
+REF_ORIGIN = (2000.0, 0.0)  # 2 km out: beyond the viewport's default 1000 m draw distance
+UNIT = 1 / 1000             # 1000 canvas units = 1 Blender unit, so each row is ~1 m tall
+BOARD_SPACING = 0.5         # gap between boards stacked under each other
+
+# Each viewport's own view from before it jumped to the references, so
+# "Back to Model" can put it exactly where it was. Keyed by the area's address.
+_saved_views = {}
 
 
-def get_or_create_scene():
-    scene = bpy.data.scenes.get(SCENE_NAME)
-    if scene is None:
-        scene = bpy.data.scenes.new(SCENE_NAME)
-    return scene
+def get_or_create_collection(scene):
+    collection = bpy.data.collections.get(COLLECTION_NAME)
+    if collection is None:
+        collection = bpy.data.collections.new(COLLECTION_NAME)
+    if collection.name not in scene.collection.children:
+        scene.collection.children.link(collection)
+    return collection
 
 
-def _lowest_point(scene):
-    """Bottom edge of everything we've placed before, or None for an empty scene."""
-    bottoms = [obj["assemblage_bottom"] for obj in scene.objects if "assemblage_bottom" in obj]
-    return min(bottoms) if bottoms else None
+def ref_bounds(collection):
+    """(left, top, right, bottom) around every board placed so far, or None."""
+    rects = [obj["assemblage_rect"] for obj in collection.all_objects if "assemblage_rect" in obj]
+    if not rects:
+        return None
+    return (min(r[0] for r in rects), max(r[1] for r in rects),
+            max(r[2] for r in rects), min(r[3] for r in rects))
 
 
-def build_scene_board(entries, board_name):
-    """entries: list of (path, label, source_url). Returns (scene, center, width)."""
-    scene = get_or_create_scene()
+def build_scene_board(scene, entries, board_name):
+    """entries: list of (path, label, source_url). Returns the new board's bounds."""
+    references = get_or_create_collection(scene)
 
     aspects = []
     for path, label, url in entries:
@@ -39,11 +49,12 @@ def build_scene_board(entries, board_name):
         aspects.append((w / h, label))
     rects = justified_rows(aspects)
 
-    collection = bpy.data.collections.new(board_name)
-    scene.collection.children.link(collection)
+    board = bpy.data.collections.new(board_name)
+    references.children.link(board)
 
-    lowest = _lowest_point(scene)
-    top = 0.0 if lowest is None else lowest - BOARD_SPACING
+    origin_x, origin_y = REF_ORIGIN
+    previous = ref_bounds(references)
+    top = origin_y if previous is None else previous[3] - BOARD_SPACING
 
     for (path, label, url), (cx, cy, w, h) in zip(entries, rects):
         image = bpy.data.images.load(path, check_existing=True)
@@ -54,24 +65,42 @@ def build_scene_board(entries, board_name):
         obj.data = image
         obj.empty_display_size = max(w, h) * UNIT  # the image's longer side
         # Canvas y grows downward; Blender's y grows upward, so flip it.
-        obj.location = (cx * UNIT, top - cy * UNIT, 0.0)
+        x = origin_x + cx * UNIT
+        y = top - cy * UNIT
+        obj.location = (x, y, 0.0)
         obj["assemblage_source"] = url
-        obj["assemblage_bottom"] = top - (cy + h / 2) * UNIT
-        collection.objects.link(obj)
+        obj["assemblage_rect"] = (x - w / 2 * UNIT, y + h / 2 * UNIT,
+                                  x + w / 2 * UNIT, y - h / 2 * UNIT)
+        board.objects.link(obj)
 
-    bottom = min(top - (cy + h / 2) * UNIT for (cx, cy, w, h) in rects)
-    right = max((cx + w / 2) * UNIT for (cx, cy, w, h) in rects)
-    center = (right / 2, (top + bottom) / 2, 0.0)
-    return scene, center, max(right, top - bottom)
+    return ref_bounds(board)
 
 
-def frame_top_view(screen, center, size):
-    """Point every 3D viewport in this screen straight down at the board."""
-    for area in screen.areas:
-        if area.type != 'VIEW_3D':
-            continue
-        r3d = area.spaces.active.region_3d
-        r3d.view_perspective = 'ORTHO'
-        r3d.view_rotation = (1.0, 0.0, 0.0, 0.0)  # identity rotation = Top view
-        r3d.view_location = center
-        r3d.view_distance = size * 0.75
+def is_at_refs(area):
+    return area.as_pointer() in _saved_views
+
+
+def go_to_refs(area, bounds):
+    """Aim this viewport straight down at the references, rotation locked."""
+    left, top, right, bottom = bounds
+    r3d = area.spaces.active.region_3d
+    key = area.as_pointer()
+    if key not in _saved_views:  # already there? keep the ORIGINAL view saved
+        _saved_views[key] = (r3d.view_perspective, tuple(r3d.view_location),
+                             tuple(r3d.view_rotation), r3d.view_distance, r3d.lock_rotation)
+    r3d.view_perspective = 'ORTHO'
+    r3d.view_rotation = (1.0, 0.0, 0.0, 0.0)  # identity rotation = Top view
+    r3d.lock_rotation = True                  # middle-drag pans instead of orbiting
+    r3d.view_location = ((left + right) / 2, (top + bottom) / 2, 0.0)
+    r3d.view_distance = max(right - left, top - bottom) * 0.75
+
+
+def back_to_model(area):
+    """Restore this viewport's view from before go_to_refs. False if there's none."""
+    saved = _saved_views.pop(area.as_pointer(), None)
+    if saved is None:
+        return False
+    r3d = area.spaces.active.region_3d
+    (r3d.view_perspective, r3d.view_location, r3d.view_rotation,
+     r3d.view_distance, r3d.lock_rotation) = saved
+    return True
