@@ -21,3 +21,7 @@ The row-packing layout algorithm in layout.py is adapted from the
 
 Assemblage would not exist without this work. Writing a .pur file at all depends
 entirely on Fyor having decoded the format first.
+
+CLIP tokenizer  (clip_model.py, bpe_simple_vocab_16e6.txt.gz)
+  Ported from open_clip, originally from https://github.com/openai/CLIP
+  MIT License, Copyright (c) 2021 OpenAI
