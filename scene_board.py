@@ -15,9 +15,11 @@ REF_ORIGIN = (2000.0, 0.0)  # 2 km out: beyond the viewport's default 1000 m dra
 UNIT = 1 / 1000             # 1000 canvas units = 1 Blender unit, so each row is ~1 m tall
 BOARD_SPACING = 0.5         # gap between boards stacked under each other
 
-# Each viewport's own view from before it jumped to the references, so
-# "Back to Model" can put it exactly where it was. Keyed by the area's address.
-_saved_views = {}
+REF_VIEW_SHARE = 0.35       # the references viewport takes 35% of the split
+
+# The address of the viewport we split off for references, so we can find it
+# again (to reuse or close it) instead of splitting a new one every time.
+_ref_area_pointer = None
 
 
 def get_or_create_collection(scene):
@@ -76,18 +78,55 @@ def build_scene_board(scene, entries, board_name):
     return ref_bounds(board)
 
 
-def is_at_refs(area):
-    return area.as_pointer() in _saved_views
+def find_ref_area(screen):
+    """The references viewport in this screen, or None if it's been closed."""
+    for area in screen.areas:
+        if area.as_pointer() == _ref_area_pointer:
+            return area
+    return None
 
 
-def go_to_refs(area, bounds):
-    """Aim this viewport straight down at the references, rotation locked."""
+def _split_off_ref_area(context, main_area):
+    """Split main_area side by side and return the new, narrower half."""
+    global _ref_area_pointer
+    before = {a.as_pointer() for a in context.screen.areas}
+    region = next(r for r in main_area.regions if r.type == 'WINDOW')
+    # Operators act on "the current area", so we temporarily tell Blender
+    # which area that is. This is called a context override.
+    with context.temp_override(area=main_area, region=region):
+        bpy.ops.screen.area_split(direction='VERTICAL', factor=1 - REF_VIEW_SHARE)
+    halves = [a for a in context.screen.areas
+              if a.as_pointer() not in before or a.as_pointer() == main_area.as_pointer()]
+    ref_area = min(halves, key=lambda a: a.width)  # whichever half came out narrower
+    _ref_area_pointer = ref_area.as_pointer()
+    return ref_area
+
+
+def _hide_everything_but_images(space):
+    """Strip the references viewport down to just the pictures."""
+    o = space.overlay
+    o.show_floor = False            # the grid floor in perspective views
+    o.show_ortho_grid = False       # the grid in top/front/side views
+    o.show_axis_x = o.show_axis_y = o.show_axis_z = False  # red/green/blue axis lines
+    o.show_cursor = False           # the 3D cursor
+    o.show_text = False             # "Top Orthographic" label in the corner
+    o.show_stats = False
+    o.show_object_origins = False   # the dot at each object's center
+    o.show_relationship_lines = False
+    space.show_gizmo = False        # the navigation gizmo (axis ball, zoom/pan buttons)
+    space.show_region_toolbar = False   # left toolbar
+    space.show_region_ui = False        # N-panel sidebar
+
+
+def show_refs(context, bounds):
+    """Open (or reuse) a side viewport aimed straight down at the references."""
+    area = find_ref_area(context.screen)
+    if area is None:
+        area = _split_off_ref_area(context, context.area)
+        _hide_everything_but_images(area.spaces.active)
+
     left, top, right, bottom = bounds
     r3d = area.spaces.active.region_3d
-    key = area.as_pointer()
-    if key not in _saved_views:  # already there? keep the ORIGINAL view saved
-        _saved_views[key] = (r3d.view_perspective, tuple(r3d.view_location),
-                             tuple(r3d.view_rotation), r3d.view_distance, r3d.lock_rotation)
     r3d.view_perspective = 'ORTHO'
     r3d.view_rotation = (1.0, 0.0, 0.0, 0.0)  # identity rotation = Top view
     r3d.lock_rotation = True                  # middle-drag pans instead of orbiting
@@ -95,12 +134,14 @@ def go_to_refs(area, bounds):
     r3d.view_distance = max(right - left, top - bottom) * 0.75
 
 
-def back_to_model(area):
-    """Restore this viewport's view from before go_to_refs. False if there's none."""
-    saved = _saved_views.pop(area.as_pointer(), None)
-    if saved is None:
+def close_refs(context):
+    """Close the references viewport. False if it isn't open."""
+    global _ref_area_pointer
+    area = find_ref_area(context.screen)
+    if area is None:
         return False
-    r3d = area.spaces.active.region_3d
-    (r3d.view_perspective, r3d.view_location, r3d.view_rotation,
-     r3d.view_distance, r3d.lock_rotation) = saved
+    region = next(r for r in area.regions if r.type == 'WINDOW')
+    with context.temp_override(area=area, region=region):
+        bpy.ops.screen.area_close()
+    _ref_area_pointer = None
     return True

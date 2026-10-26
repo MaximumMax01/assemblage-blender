@@ -257,15 +257,15 @@ class ASSEMBLAGE_OT_board_blender(bpy.types.Operator):
         bounds = scene_board.build_scene_board(
             context.scene, entries, state.prompt.strip() or "References")
         if _in_viewport(context):
-            scene_board.go_to_refs(context.area, bounds)
+            scene_board.show_refs(context, bounds)
         self.report({'INFO'}, f"Added {len(entries)} reference images")
         return {'FINISHED'}
 
 
-class ASSEMBLAGE_OT_go_to_refs(bpy.types.Operator):
-    bl_idname = "assemblage.go_to_refs"
-    bl_label = "Go to References"
-    bl_description = "Point this viewport at your reference boards"
+class ASSEMBLAGE_OT_show_refs(bpy.types.Operator):
+    bl_idname = "assemblage.show_refs"
+    bl_label = "Show References"
+    bl_description = "Open a side viewport showing your reference boards"
 
     def execute(self, context):
         collection = bpy.data.collections.get(scene_board.COLLECTION_NAME)
@@ -273,18 +273,18 @@ class ASSEMBLAGE_OT_go_to_refs(bpy.types.Operator):
         if bounds is None or not _in_viewport(context):
             self.report({'WARNING'}, "No reference boards in this file yet")
             return {'CANCELLED'}
-        scene_board.go_to_refs(context.area, bounds)
+        scene_board.show_refs(context, bounds)
         return {'FINISHED'}
 
 
-class ASSEMBLAGE_OT_back_to_model(bpy.types.Operator):
-    bl_idname = "assemblage.back_to_model"
-    bl_label = "Back to Model"
-    bl_description = "Return this viewport to where it was"
+class ASSEMBLAGE_OT_close_refs(bpy.types.Operator):
+    bl_idname = "assemblage.close_refs"
+    bl_label = "Close References"
+    bl_description = "Close the side viewport showing your references"
 
     def execute(self, context):
-        if not (_in_viewport(context) and scene_board.back_to_model(context.area)):
-            self.report({'WARNING'}, "Nothing to go back to")
+        if not scene_board.close_refs(context):
+            self.report({'WARNING'}, "The references viewport isn't open")
             return {'CANCELLED'}
         return {'FINISHED'}
 
@@ -304,10 +304,10 @@ class ASSEMBLAGE_PT_main(bpy.types.Panel):
         layout = self.layout
         layout.prop(state, "prompt")
 
-        if context.area is not None and scene_board.is_at_refs(context.area):
-            layout.operator("assemblage.back_to_model", icon='LOOP_BACK')
+        if scene_board.find_ref_area(context.screen) is not None:
+            layout.operator("assemblage.close_refs", icon='PANEL_CLOSE')
         elif bpy.data.collections.get(scene_board.COLLECTION_NAME):
-            layout.operator("assemblage.go_to_refs", icon='IMAGE_REFERENCE')
+            layout.operator("assemblage.show_refs", icon='IMAGE_REFERENCE')
 
         row = layout.row()
         row.enabled = not state.is_searching  # grey out while busy
@@ -345,8 +345,8 @@ classes = (
     ASSEMBLAGE_OT_view_image,
     ASSEMBLAGE_OT_board_pureref,
     ASSEMBLAGE_OT_board_blender,
-    ASSEMBLAGE_OT_go_to_refs,
-    ASSEMBLAGE_OT_back_to_model,
+    ASSEMBLAGE_OT_show_refs,
+    ASSEMBLAGE_OT_close_refs,
     ASSEMBLAGE_PT_main,
 )
 
