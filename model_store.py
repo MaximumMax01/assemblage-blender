@@ -13,7 +13,7 @@ else:
     from search import USER_AGENT
 
 # Where the files live: your GitHub release tagged "models-v1".
-BASE_URL = "https://github.com/MaximumMax01/assemblage-blender/releases/tag/models-v1"
+BASE_URL = "https://github.com/MaximumMax01/assemblage-blender/releases/download/models-v1/"
 
 # name on disk -> SHA-256 fingerprint of the exact file we exported and tested
 FILES = {
