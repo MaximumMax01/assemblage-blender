@@ -21,6 +21,12 @@ PACKAGES = [
     "flatbuffers==25.12.19",
     "packaging==26.3",
     "protobuf==7.36.1",
+    # web image search, and its dependencies
+    "ddgs==9.16.0",
+    "primp==2.0.1",
+    "lxml==6.1.3",
+    "click==8.5.0",
+    "colorama==0.4.6",
 ]
 
 PLATFORMS = {

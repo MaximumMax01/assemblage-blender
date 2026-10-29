@@ -26,7 +26,9 @@ def _search_worker(prompt, folder, models_dir, auto_pick, out):
             os.remove(old)  # clear the previous search's images
 
         out.put(("progress", f"Searching for '{prompt}'..."))
-        hits = search.search_wikimedia(prompt)
+        hits, problems = search.search_all(prompt)
+        if not hits:
+            raise RuntimeError("no results" + (f": {'; '.join(problems)}" if problems else ""))
 
         def report(n, total):
             out.put(("progress", f"Downloading {n}/{total}..."))
@@ -50,6 +52,8 @@ def _search_worker(prompt, folder, models_dir, auto_pick, out):
             except Exception as exc:
                 # Scoring is a bonus: if it breaks, still deliver the images, and say why.
                 note = f" (AI scoring failed: {type(exc).__name__}: {exc})"
+        if problems:
+            note += f" ({'; '.join(problems)})"
         out.put(("done", (kept, len(failed), len(rejected), note)))
     except Exception as exc:
         out.put(("error", f"{type(exc).__name__}: {exc}"))

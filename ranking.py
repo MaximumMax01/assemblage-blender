@@ -5,10 +5,14 @@ Plain Python + NumPy + Pillow, no bpy: runs on the worker thread.
 
 from PIL import Image
 
-from . import clip_model, model_store
+from . import clip_model, model_store, scoring
 
-MAX_PICKS = 8      # never pre-tick more than this many
-PICK_MARGIN = 0.08  # ...and only images scoring within this of the best one
+MAX_PICKS = 8       # never pre-tick more than this many
+# Option C's margin. 0.08 suited the subject score alone; the combined score
+# spreads about (subject weight + 1) times as wide, because the style term
+# moves roughly like one more subject score. Scaling it keeps the rule meaning
+# the same thing whatever weights scoring.py uses.
+PICK_MARGIN = 0.08 * (scoring.SUBJECT_WEIGHT + 1)
 
 _model = None  # loading takes a few seconds, so keep it once loaded
 
@@ -21,12 +25,18 @@ def _get_model(models_dir):
     return _model
 
 
+def load_rgb(path):
+    """Open any image as RGB. Going through RGBA first handles transparency
+    cleanly (and avoids Pillow's palette-transparency warning)."""
+    with Image.open(path) as img:
+        return img.convert("RGBA").convert("RGB")
+
+
 def score(prompt, image_paths, models_dir):
-    """Cosine similarity of each image to the bare prompt (the 'subject' score)."""
+    """Combined reference score for each image (higher = better reference)."""
     model = _get_model(models_dir)
-    text = model.encode_texts([prompt])
-    images = [Image.open(p).convert("RGB") for p in image_paths]
-    return (model.encode_images(images) @ text.T)[:, 0].tolist()
+    vectors = model.encode_images([load_rgb(p) for p in image_paths])
+    return scoring.score_images(model, prompt, vectors)["combined"].tolist()
 
 
 def choose(scores, max_picks=MAX_PICKS, margin=PICK_MARGIN):
