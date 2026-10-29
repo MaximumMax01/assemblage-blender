@@ -168,7 +168,8 @@ class ASSEMBLAGE_PG_result(bpy.types.PropertyGroup):
 class ASSEMBLAGE_PG_state(bpy.types.PropertyGroup):
     prompt: bpy.props.StringProperty(
         name="Subject",
-        description="What you're modelling, e.g. 'stage light'",
+        description="Be specific: colour, material and style all change what gets picked, "
+                    "e.g. 'black mesh office chair' rather than 'chair'",
         default="",
     )
     status: bpy.props.StringProperty(default="")
@@ -378,6 +379,8 @@ class ASSEMBLAGE_PT_main(bpy.types.Panel):
         state = context.window_manager.assemblage
         layout = self.layout
         layout.prop(state, "prompt")
+        if len(state.prompt.split()) < 2:  # vanishes once the prompt gets specific
+            layout.label(text="Tip: be specific, e.g. 'black mesh office chair'", icon='INFO')
 
         if scene_board.find_ref_area(context.screen) is not None:
             layout.operator("assemblage.close_refs", icon='PANEL_CLOSE')

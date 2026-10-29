@@ -32,3 +32,15 @@ license = ["SPDX:GPL-3.0-or-later"]
 [permissions]
 network = "Search the web for reference images"
 files = "Save downloaded images and reference boards"
+[build]
+paths_exclude_pattern = [
+  "__pycache__/",
+  ".git",
+  "*.zip",
+  ".gitignore",
+  "/_test_downloads/",
+  "/_models/",
+  "/tools/",
+  "/dist/",
+  "/docs/",
+]
