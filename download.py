@@ -8,10 +8,10 @@ import os
 import urllib.request
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
-try:
-    from .search import USER_AGENT  # inside Blender (as part of the package)
-except ImportError:
-    from search import USER_AGENT   # run directly from PowerShell
+if __package__:
+    from .search import USER_AGENT
+else:
+    from search import USER_AGENT
 
 EXTENSIONS = {"image/jpeg": ".jpg", "image/png": ".png"}
 MAX_BYTES = 15_000_000  # refuse anything over 15 MB

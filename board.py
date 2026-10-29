@@ -8,13 +8,13 @@ from io import BytesIO
 
 from PIL import Image
 
-try:
-    from .layout import justified_rows      # inside Blender (as part of the package)
+if __package__:   # loaded by Blender as part of the extension
+    from .layout import justified_rows
     from .purformat import items
     from .purformat.purformat import PurFile
     from .purformat.write import write_pur_file
-except ImportError:
-    from layout import justified_rows       # run directly from PowerShell
+else:             # run directly: python board.py
+    from layout import justified_rows
     from purformat import items
     from purformat.purformat import PurFile
     from purformat.write import write_pur_file

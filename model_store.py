@@ -7,10 +7,10 @@ import hashlib
 import os
 import urllib.request
 
-try:
-    from .search import USER_AGENT  # inside Blender (as part of the package)
-except ImportError:
-    from search import USER_AGENT   # run directly from PowerShell
+if __package__:
+    from .search import USER_AGENT
+else:
+    from search import USER_AGENT
 
 # Where the files live: your GitHub release tagged "models-v1".
 BASE_URL = "https://github.com/MaximumMax01/assemblage-blender/releases/tag/models-v1"
