@@ -8,7 +8,7 @@ import threading
 import bpy
 import bpy.utils.previews
 
-from . import board, download, filters, scene_board, search
+from . import board, download, filters, model_store, ranking, scene_board, search
 
 # ---------------------------------------------------------------- #
 # Background work: the worker thread and the main-thread timer
@@ -19,7 +19,7 @@ _worker = None            # the running search thread, if any
 _previews = None          # thumbnail collection (main thread only)
 
 
-def _search_worker(prompt, folder, out):
+def _search_worker(prompt, folder, models_dir, auto_pick, out):
     """Runs on a background thread. Must never touch bpy."""
     try:
         for old in glob.glob(os.path.join(folder, "*.jpg")) + glob.glob(os.path.join(folder, "*.png")):
@@ -35,9 +35,43 @@ def _search_worker(prompt, folder, out):
 
         out.put(("progress", f"Checking {len(downloaded)} images..."))
         kept, rejected = filters.filter_all(downloaded)
-        out.put(("done", (kept, len(failed), len(rejected))))
+
+        note = ""
+        if auto_pick and kept and model_store.is_installed(models_dir):
+            out.put(("progress", f"AI is scoring {len(kept)} images..."))
+            try:
+                scores = ranking.score(prompt, [hit["path"] for hit in kept], models_dir)
+                picks = ranking.choose(scores)
+                for i, hit in enumerate(kept):
+                    hit["score"] = scores[i]
+                    hit["picked"] = i in picks
+                kept.sort(key=lambda hit: -hit["score"])  # best first in the picker
+                note = f", AI picked {len(picks)}"
+            except Exception as exc:
+                # Scoring is a bonus: if it breaks, still deliver the images, and say why.
+                note = f" (AI scoring failed: {type(exc).__name__}: {exc})"
+        out.put(("done", (kept, len(failed), len(rejected), note)))
     except Exception as exc:
         out.put(("error", f"{type(exc).__name__}: {exc}"))
+
+
+def _model_worker(models_dir, out):
+    """Runs on a background thread: downloads and verifies the AI model."""
+    try:
+        def report(name, received, total):
+            mb = received // (1024 * 1024)
+            if received % (8 * 1024 * 1024) < model_store.CHUNK:  # about every 8 MB
+                total_mb = f"/{total // (1024 * 1024)}" if total else ""
+                out.put(("progress", f"Downloading {name}: {mb}{total_mb} MB"))
+
+        model_store.download(models_dir, on_progress=report)
+        out.put(("model_done", None))
+    except Exception as exc:
+        out.put(("error", f"Model download failed: {type(exc).__name__}: {exc}"))
+
+
+def _models_dir(create=False):
+    return bpy.utils.extension_path_user(__package__, path="models", create=create)
 
 
 def _board_worker(entries, output_path, out):
@@ -89,17 +123,23 @@ def _poll_results():
             except OSError as exc:
                 state.status = f"Board saved, but couldn't open PureRef: {exc}"
             finished = True
+        elif kind == "model_done":
+            state.status = "AI model ready. Auto-pick is on for your next search."
+            finished = True
         elif kind == "done":
-            kept, n_failed, n_rejected = payload
+            kept, n_failed, n_rejected, note = payload
             state.results.clear()
             for hit in kept:
                 item = state.results.add()
                 item.title = hit["title"].removeprefix("File:")
                 item.url = hit["url"]
                 item.path = hit["path"]
-                _previews.load(item.path, item.path, 'IMAGE')  # key = file path
+                item.score = hit.get("score", -1.0)
+                item.selected = hit.get("picked", False)
+                if item.path not in _previews:  # the same file twice would crash load()
+                    _previews.load(item.path, item.path, 'IMAGE')  # key = file path
             state.status = (f"{len(kept)} kept, {n_rejected} filtered out, "
-                            f"{n_failed} failed to download")
+                            f"{n_failed} failed to download{note}")
             finished = True
 
     _redraw_sidebars()
@@ -117,6 +157,7 @@ class ASSEMBLAGE_PG_result(bpy.types.PropertyGroup):
     title: bpy.props.StringProperty()
     url: bpy.props.StringProperty()
     path: bpy.props.StringProperty()
+    score: bpy.props.FloatProperty(default=-1.0)  # -1 = not scored
     selected: bpy.props.BoolProperty(name="Use", default=False)
 
 
@@ -129,6 +170,11 @@ class ASSEMBLAGE_PG_state(bpy.types.PropertyGroup):
     status: bpy.props.StringProperty(default="")
     is_searching: bpy.props.BoolProperty(default=False)
     results: bpy.props.CollectionProperty(type=ASSEMBLAGE_PG_result)
+    auto_pick: bpy.props.BoolProperty(
+        name="Auto-pick",
+        description="Let the AI rank the images and tick the best ones for you",
+        default=True,
+    )
 
 
 # ---------------------------------------------------------------- #
@@ -166,7 +212,32 @@ class ASSEMBLAGE_OT_search(bpy.types.Operator):
         # and hands over plain strings.
         folder = bpy.utils.extension_path_user(__package__, path="cache", create=True)
         _worker = threading.Thread(target=_search_worker,
-                                   args=(prompt, folder, _results), daemon=True)
+                                   args=(prompt, folder, _models_dir(), state.auto_pick, _results),
+                                   daemon=True)
+        _worker.start()
+        bpy.app.timers.register(_poll_results, first_interval=0.1)
+        return {'FINISHED'}
+
+
+class ASSEMBLAGE_OT_download_model(bpy.types.Operator):
+    bl_idname = "assemblage.download_model"
+    bl_label = f"Download AI Model ({model_store.DOWNLOAD_MB} MB)"
+    bl_description = "One-time download of the model that ranks and auto-picks images"
+
+    def execute(self, context):
+        global _worker
+        state = context.window_manager.assemblage
+        if not bpy.app.online_access:
+            self.report({'ERROR'}, "Online access is off. Turn it on in "
+                        "Preferences > System > Network > Allow Online Access")
+            return {'CANCELLED'}
+        if _worker is not None and _worker.is_alive():
+            self.report({'WARNING'}, "Still working on the last task")
+            return {'CANCELLED'}
+        state.is_searching = True
+        state.status = "Starting model download..."
+        _worker = threading.Thread(target=_model_worker,
+                                   args=(_models_dir(create=True), _results), daemon=True)
         _worker.start()
         bpy.app.timers.register(_poll_results, first_interval=0.1)
         return {'FINISHED'}
@@ -311,6 +382,13 @@ class ASSEMBLAGE_PT_main(bpy.types.Panel):
 
         row = layout.row()
         row.enabled = not state.is_searching  # grey out while busy
+        if model_store.is_installed(_models_dir()):
+            row.prop(state, "auto_pick")
+        else:
+            row.operator("assemblage.download_model", icon='IMPORT')
+
+        row = layout.row()
+        row.enabled = not state.is_searching
         row.operator("assemblage.search", icon='VIEWZOOM')
 
         if state.status:
@@ -333,7 +411,8 @@ class ASSEMBLAGE_PT_main(bpy.types.Panel):
             if preview is not None:
                 cell.template_icon(icon_value=preview.icon_id, scale=6.0)
             row = cell.row(align=True)
-            row.prop(item, "selected", text=item.title[:20])
+            label = item.title[:20] if item.score < 0 else f"{item.score:.2f}  {item.title[:14]}"
+            row.prop(item, "selected", text=label)
             op = row.operator("assemblage.view_image", text="", icon='IMAGE_DATA')
             op.path = item.path
 
@@ -342,6 +421,7 @@ classes = (
     ASSEMBLAGE_PG_result,  # before state, because state's collection uses it
     ASSEMBLAGE_PG_state,
     ASSEMBLAGE_OT_search,
+    ASSEMBLAGE_OT_download_model,
     ASSEMBLAGE_OT_view_image,
     ASSEMBLAGE_OT_board_pureref,
     ASSEMBLAGE_OT_board_blender,
