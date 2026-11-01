@@ -6,8 +6,6 @@ Assemblage is a Blender extension that searches the web for reference images,
 uses an on-device AI model to rank them and pick the most useful ones, and
 lays them out as a board: inside Blender, or as a PureRef file.
 
-![A reference board built by Assemblage](docs/board.png)
-
 ## Install
 
 1. Download the zip for your system from the
