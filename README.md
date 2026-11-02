@@ -3,10 +3,8 @@
 **Type what you're modelling. Get a reference board.**
 
 Assemblage is a Blender extension that searches the web for reference images,
-uses an on-device AI model to rank them and pick the most useful ones, and
+uses an on-device AI to rank them and pick the most useful ones, and
 lays them out as a board: inside Blender, or as a PureRef file.
-
-![A reference board built by Assemblage](docs/board.png)
 
 ## Install
 
@@ -18,21 +16,21 @@ lays them out as a board: inside Blender, or as a PureRef file.
 The first time, click **Download AI Model (608 MB)**. It downloads once,
 is checked against a fingerprint, and runs entirely on your computer.
 
-## Use
+## Use/Instructions (IMPORTANT)
 
-1. Type what you're modelling. **Be specific**: "black mesh office chair"
+1. Type what you're modelling. **Be specific!** ex. "black mesh office chair"
    finds better references than "chair".
 2. Click **Search**. Images are downloaded, filtered (too small, blurry,
-   duplicates), and ranked by the AI, best first. The best few are ticked.
+   duplicates), and ranked by the AI\*, best first. The best few are ticked.
 3. Untick anything you don't want, tick anything it missed.
 4. **Send to Blender** lays the board out in a side viewport, far from your
-   model. **Send to PureRef** saves a .pur file and opens it.
+   model. Use `shift + click` to navigate. **Send to PureRef** saves a .pur file and opens it. \* If you choose to download the AI model you must enable internet access in `Preferences > System > Network`
 
 ## Requirements
 
 - Blender 5.2 or newer
 - Windows (64-bit) or macOS 14+ on Apple Silicon
-- Internet access enabled in Blender (Preferences > System > Network)
+- Internet access enabled in Blender (`Preferences > System > Network`)
 
 ## How it decides what's a good reference
 
@@ -48,6 +46,6 @@ Your search terms go to DuckDuckGo and Wikimedia Commons, and images are
 downloaded from the sites they're hosted on. Nothing else leaves your computer.
 Images belong to their owners: use them as references, not in published work.
 
-## Licence
+## License
 
 GPL-3.0-or-later. Third-party code and models are credited in `NOTICE`.
