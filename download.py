@@ -87,6 +87,7 @@ def download_all(hits, folder, on_progress=None, max_workers=8):
 
     with ThreadPoolExecutor(max_workers=max_workers) as pool:
         futures = {pool.submit(download_one, hit, folder): hit for hit in hits}
+        # pool.submit() returns a Future, which we can wait on with as_completed().
         for count, future in enumerate(as_completed(futures), start=1):
             hit = futures[future]
             try:
