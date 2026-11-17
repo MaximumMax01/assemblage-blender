@@ -8,7 +8,7 @@ import threading
 import bpy
 import bpy.utils.previews
 
-from . import board, download, filters, model_store, ranking, scene_board, search
+from . import board, download, filters, model_store, ranking, scene_board, search, terms
 
 # ---------------------------------------------------------------- #
 # Background work: the worker thread and the main-thread timer
@@ -57,6 +57,14 @@ def _search_worker(prompt, folder, models_dir, auto_pick, out):
         out.put(("done", (kept, len(failed), len(rejected), note)))
     except Exception as exc:
         out.put(("error", f"{type(exc).__name__}: {exc}"))
+
+
+def _terms_worker(text, out):
+    """Runs on a background thread: asks for trade names. Must never touch bpy."""
+    try:
+        out.put(("terms", (text, terms.suggest(text))))
+    except Exception as exc:
+        out.put(("terms_failed", f"{type(exc).__name__}: {exc}"))
 
 
 def _model_worker(models_dir, out):
@@ -127,6 +135,19 @@ def _poll_results():
             except OSError as exc:
                 state.status = f"Board saved, but couldn't open PureRef: {exc}"
             finished = True
+        elif kind == "terms":
+            text, found = payload
+            state.suggested_for = text
+            state.suggestions.clear()
+            for t in found:
+                item = state.suggestions.add()
+                item.term, item.gloss = t["term"], t["gloss"]
+            state.status = "Click the one you mean to search for it"
+            finished = True
+        elif kind == "terms_failed":
+            # Never a dead end: plain Search still works on the user's own words.
+            state.status = f"No name suggestions ({payload}). Search uses your words as typed."
+            finished = True
         elif kind == "model_done":
             state.status = "AI model ready. Auto-pick is on for your next search."
             finished = True
@@ -165,6 +186,11 @@ class ASSEMBLAGE_PG_result(bpy.types.PropertyGroup):
     selected: bpy.props.BoolProperty(name="Use", default=False)
 
 
+class ASSEMBLAGE_PG_term(bpy.types.PropertyGroup):
+    term: bpy.props.StringProperty()
+    gloss: bpy.props.StringProperty()
+
+
 class ASSEMBLAGE_PG_state(bpy.types.PropertyGroup):
     prompt: bpy.props.StringProperty(
         name="Subject",
@@ -175,6 +201,8 @@ class ASSEMBLAGE_PG_state(bpy.types.PropertyGroup):
     status: bpy.props.StringProperty(default="")
     is_searching: bpy.props.BoolProperty(default=False)
     results: bpy.props.CollectionProperty(type=ASSEMBLAGE_PG_result)
+    suggestions: bpy.props.CollectionProperty(type=ASSEMBLAGE_PG_term)
+    suggested_for: bpy.props.StringProperty(default="")
     auto_pick: bpy.props.BoolProperty(
         name="Auto-pick",
         description="Let the AI rank the images and tick the best ones for you",
@@ -222,6 +250,53 @@ class ASSEMBLAGE_OT_search(bpy.types.Operator):
         _worker.start()
         bpy.app.timers.register(_poll_results, first_interval=0.1)
         return {'FINISHED'}
+
+
+class ASSEMBLAGE_OT_suggest(bpy.types.Operator):
+    bl_idname = "assemblage.suggest"
+    bl_label = "Suggest Names"
+    bl_description = ("Don't know what it's called? Describe it in plain words and get the "
+                      "names used on product pages (sends your description to Assemblage's server)")
+
+    def execute(self, context):
+        global _worker
+        state = context.window_manager.assemblage
+        text = state.prompt.strip()
+        if not text:
+            self.report({'WARNING'}, "Describe the thing first, e.g. 'rubber strip where office walls meet the floor'")
+            return {'CANCELLED'}
+        if not bpy.app.online_access:
+            self.report({'ERROR'}, "Online access is off. Turn it on in "
+                        "Preferences > System > Network > Allow Online Access")
+            return {'CANCELLED'}
+        if _worker is not None and _worker.is_alive():
+            self.report({'WARNING'}, "Still working on the last task")
+            return {'CANCELLED'}
+        state.is_searching = True
+        state.status = "Finding the right names..."
+        _worker = threading.Thread(target=_terms_worker, args=(text, _results), daemon=True)
+        _worker.start()
+        bpy.app.timers.register(_poll_results, first_interval=0.1)
+        return {'FINISHED'}
+
+
+class ASSEMBLAGE_OT_use_term(bpy.types.Operator):
+    bl_idname = "assemblage.use_term"
+    bl_label = "Use Name"
+    bl_description = "Search for this name"
+
+    term: bpy.props.StringProperty(options={'HIDDEN', 'SKIP_SAVE'})
+    gloss: bpy.props.StringProperty(options={'HIDDEN', 'SKIP_SAVE'})
+
+    @classmethod
+    def description(cls, context, properties):
+        return properties.gloss or cls.bl_description
+
+    def execute(self, context):
+        # The name becomes the prompt, so the web search AND the CLIP ranking
+        # both use it. Ranking by the old words would favour the wrong images.
+        context.window_manager.assemblage.prompt = self.term
+        return bpy.ops.assemblage.search()
 
 
 class ASSEMBLAGE_OT_download_model(bpy.types.Operator):
@@ -382,6 +457,20 @@ class ASSEMBLAGE_PT_main(bpy.types.Panel):
         if len(state.prompt.split()) < 2:  # vanishes once the prompt gets specific
             layout.label(text="Tip: be specific, e.g. 'black mesh office chair'", icon='INFO')
 
+        row = layout.row()
+        row.enabled = not state.is_searching
+        row.operator("assemblage.suggest", icon='QUESTION')
+        if state.suggestions:
+            box = layout.box()
+            box.label(text=f"Names for '{state.suggested_for[:28]}':")
+            for s in state.suggestions:
+                col = box.column(align=True)
+                col.enabled = not state.is_searching
+                op = col.operator("assemblage.use_term", text=s.term)
+                op.term, op.gloss = s.term, s.gloss
+                if s.gloss:
+                    col.label(text=s.gloss)
+
         if scene_board.find_ref_area(context.screen) is not None:
             layout.operator("assemblage.close_refs", icon='PANEL_CLOSE')
         elif bpy.data.collections.get(scene_board.COLLECTION_NAME):
@@ -426,8 +515,11 @@ class ASSEMBLAGE_PT_main(bpy.types.Panel):
 
 classes = (
     ASSEMBLAGE_PG_result,  # before state, because state's collection uses it
+    ASSEMBLAGE_PG_term,
     ASSEMBLAGE_PG_state,
     ASSEMBLAGE_OT_search,
+    ASSEMBLAGE_OT_suggest,
+    ASSEMBLAGE_OT_use_term,
     ASSEMBLAGE_OT_download_model,
     ASSEMBLAGE_OT_view_image,
     ASSEMBLAGE_OT_board_pureref,

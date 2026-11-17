@@ -1,0 +1,18 @@
+name = "assemblage-terms"
+main = "src/index.js"
+compatibility_date = "2026-11-01"
+
+[ai]
+binding = "AI"
+
+# Per-IP limit: 20 suggestions a minute is far above what a person clicks,
+# and stops one script from burning the whole day's free allocation quickly.
+# If deploy rejects this block on your plan, delete it: the Worker skips the
+# check when the binding is missing.
+[[ratelimits]]
+name = "LIMITER"
+namespace_id = "1001"
+
+  [ratelimits.simple]
+  limit = 20
+  period = 60

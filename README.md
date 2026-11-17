@@ -20,6 +20,8 @@ is checked against a fingerprint, and runs entirely on your computer.
 
 1. Type what you're modelling. **Be specific!** ex. "black mesh office chair"
    finds better references than "chair".
+   Don't know what it's called? Describe it ("rubber strip where office walls
+   meet the floor") and click **Suggest Names**, then click the name you mean.
 2. Click **Search**. Images are downloaded, filtered (too small, blurry,
    duplicates), and ranked by the AI\*, best first. The best few are ticked.
 3. Untick anything you don't want, tick anything it missed.
@@ -43,7 +45,10 @@ See `scoring.py`.
 ## Privacy and images
 
 Your search terms go to DuckDuckGo and Wikimedia Commons, and images are
-downloaded from the sites they're hosted on. Nothing else leaves your computer.
+downloaded from the sites they're hosted on. If you click **Suggest Names**,
+your description is sent to Assemblage's server (a Cloudflare Worker running an
+open AI model) to come up with names; it isn't stored. Nothing else leaves your
+computer.
 Images belong to their owners: use them as references, not in published work.
 
 ## License

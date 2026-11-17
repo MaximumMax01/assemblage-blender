@@ -41,6 +41,7 @@ paths_exclude_pattern = [
   "/_test_downloads/",
   "/_models/",
   "/tools/",
+  "/worker/",
   "/dist/",
   "/docs/",
 ]
