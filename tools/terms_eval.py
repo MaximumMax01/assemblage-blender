@@ -19,7 +19,7 @@ import terms  # noqa: E402
 
 # (what an artist might type, words that mean it found the right thing)
 CASES = [
-    ("wall trim in a commercial office interior", ["cove base", "wall base"]),
+    ("wall trim in a commercial office interior", ["cove base", "wall base", "rubber base", "vinyl base", "resilient base"]),
     ("metal strip on the edge of stairs so you don't slip", ["nosing"]),
     ("the ceiling in offices with the white tiles in a metal grid",
      ["suspended ceiling", "drop ceiling", "acoustic ceiling tile", "t-bar", "ceiling grid"]),

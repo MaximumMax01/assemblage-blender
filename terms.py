@@ -16,7 +16,7 @@ else:
     from search import USER_AGENT
 
 # Replace with your deployed Worker's URL.
-SUGGEST_URL = "https://assemblage-terms.YOUR-SUBDOMAIN.workers.dev"
+SUGGEST_URL = "https://assemblage-terms.assemblageaddon.workers.dev"
 TIMEOUT = 8      # seconds; a slow answer is worse than none
 MAX_INPUT = 300  # the Worker cuts longer text anyway
 

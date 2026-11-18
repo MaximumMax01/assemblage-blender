@@ -5,7 +5,6 @@
 // No API key exists anywhere: the model runs in the same Cloudflare account
 // through the AI binding. On the Workers Free plan, going past the daily free
 // allocation makes calls fail (the add-on then searches the user's own words);
-// it can never produce a bill.
 
 const DEFAULT_MODEL = "@cf/google/gemma-4-26b-a4b-it";
 // Models the eval script may ask for with ?model=. Kept to cheap ones so a
@@ -37,9 +36,18 @@ Reply with JSON only, no other text:
 const EXAMPLE_USER = "the metal arm thing that holds a tv on the wall";
 const EXAMPLE_REPLY = JSON.stringify({
   terms: [
-    { term: "full-motion TV wall mount", gloss: "Folding arm that swings the TV out from the wall" },
-    { term: "tilting TV wall mount", gloss: "Flat bracket, TV tilts up and down only" },
-    { term: "fixed TV wall mount", gloss: "Low flat bracket, TV sits flush to the wall" },
+    {
+      term: "full-motion TV wall mount",
+      gloss: "Folding arm that swings the TV out from the wall",
+    },
+    {
+      term: "tilting TV wall mount",
+      gloss: "Flat bracket, TV tilts up and down only",
+    },
+    {
+      term: "fixed TV wall mount",
+      gloss: "Low flat bracket, TV sits flush to the wall",
+    },
   ],
 });
 
@@ -48,6 +56,18 @@ function json(body, status = 200) {
     status,
     headers: { "content-type": "application/json" },
   });
+}
+
+// Different Workers AI models hand back their text in different shapes.
+// Older ones: {response: "..."}. OpenAI-style ones: {choices: [{message: {content: "..."}}]}.
+function extractText(result) {
+  if (result == null) return "";
+  if (typeof result === "string") return result;
+  if (result.response != null) return result.response;
+  const choice = result.choices?.[0];
+  if (choice) return choice.message?.content ?? choice.text ?? "";
+  if (result.output_text != null) return result.output_text;
+  return "";
 }
 
 // Models sometimes wrap JSON in prose or code fences: take the outermost {...}.
@@ -69,11 +89,18 @@ function clean(terms) {
   const seen = new Set();
   const out = [];
   for (const t of terms) {
-    const term = String(t?.term ?? "").trim().slice(0, 60);
+    const term = String(t?.term ?? "")
+      .trim()
+      .slice(0, 60);
     const key = term.toLowerCase();
     if (!term || seen.has(key)) continue;
     seen.add(key);
-    out.push({ term, gloss: String(t?.gloss ?? "").trim().slice(0, 100) });
+    out.push({
+      term,
+      gloss: String(t?.gloss ?? "")
+        .trim()
+        .slice(0, 100),
+    });
     if (out.length === MAX_TERMS) break;
   }
   return out;
@@ -99,8 +126,19 @@ export default {
     if (!text) return json({ error: "empty" }, 400);
     text = text.slice(0, MAX_INPUT_CHARS);
 
-    const asked = new URL(request.url).searchParams.get("model");
+    const params = new URL(request.url).searchParams;
+    const asked = params.get("model");
     const model = asked && ALLOWED_MODELS.has(asked) ? asked : DEFAULT_MODEL;
+
+    // Thinking models (Gemma 4) reason before answering. "off" asks the chat
+    // template to skip it; low/medium/high set how much. Experiment knob.
+    const effort = params.get("effort") || "off";
+    const thinking =
+      effort === "off"
+        ? { chat_template_kwargs: { enable_thinking: false } }
+        : ["low", "medium", "high"].includes(effort)
+          ? { reasoning_effort: effort }
+          : {};
 
     let result;
     try {
@@ -111,16 +149,26 @@ export default {
           { role: "assistant", content: EXAMPLE_REPLY },
           { role: "user", content: text },
         ],
-        max_tokens: 220,
+        max_tokens: 1000,
         temperature: 0.2,
+        ...thinking,
       });
     } catch (err) {
       // Daily free allocation used up, model unavailable, etc.
-      return json({ error: "model_unavailable", detail: String(err).slice(0, 200) }, 503);
+      return json(
+        { error: "model_unavailable", detail: String(err).slice(0, 200) },
+        503,
+      );
     }
 
-    const terms = clean(parseTerms(result?.response));
-    if (!terms.length) return json({ error: "unparseable", model }, 502);
+    // Every call: how many tokens and neurons did it cost? (shows in `wrangler tail`)
+    console.log(model, effort, JSON.stringify(result?.usage ?? {}));
+    const terms = clean(parseTerms(extractText(result)));
+    if (!terms.length) {
+      // Visible with `npx wrangler tail`: what did the model actually send?
+      console.log("unparseable", model, JSON.stringify(result).slice(0, 1500));
+      return json({ error: "unparseable", model }, 502);
+    }
     return json({ terms, model });
   },
 };
