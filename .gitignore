@@ -1,6 +1,6 @@
 *.zip
 _test_downloads/
-_models/
+_models
 __pycache__/
 
 _labels/
