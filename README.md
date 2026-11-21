@@ -19,7 +19,9 @@ is checked against a fingerprint, and runs entirely on your computer.
 ## Use/Instructions (IMPORTANT)
 
 1. Type what you're modelling. **Be specific!** ex. "black mesh office chair"
-   finds better references than "chair".
+   finds better references than "chair". If you want it shown somewhere real,
+   say where: "drinking fountain on a hallway wall" brings back installed
+   fountains instead of catalog photos on white.
    Don't know what it's called? Describe it ("rubber strip where office walls
    meet the floor") and click **Suggest Names**, then click the name you mean.
 2. Click **Search**. Images are downloaded, filtered (too small, blurry,

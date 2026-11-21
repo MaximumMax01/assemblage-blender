@@ -3,6 +3,7 @@ import os
 import queue
 import subprocess
 import sys
+import textwrap
 import threading
 
 import bpy
@@ -52,6 +53,8 @@ def _search_worker(prompt, folder, models_dir, auto_pick, out):
             except Exception as exc:
                 # Scoring is a bonus: if it breaks, still deliver the images, and say why.
                 note = f" (AI scoring failed: {type(exc).__name__}: {exc})"
+        elif kept and not model_store.is_installed(models_dir):
+            note = ". Tick the ones you want, or get AI Auto-Pick to rank them for you"
         if problems:
             note += f" ({'; '.join(problems)})"
         out.put(("done", (kept, len(failed), len(rejected), note)))
@@ -67,8 +70,13 @@ def _terms_worker(text, out):
         out.put(("terms_failed", f"{type(exc).__name__}: {exc}"))
 
 
-def _model_worker(models_dir, out):
-    """Runs on a background thread: downloads and verifies the AI model."""
+def _model_worker(models_dir, out, rescore=None):
+    """Runs on a background thread: downloads and verifies the AI model.
+
+    rescore: (prompt, image paths) of the results already on screen, or None.
+    If given, they're ranked straight away, so nobody has to search again
+    just to see what the AI would have picked.
+    """
     try:
         def report(name, received, total):
             mb = received // (1024 * 1024)
@@ -77,9 +85,21 @@ def _model_worker(models_dir, out):
                 out.put(("progress", f"Downloading {name}: {mb}{total_mb} MB"))
 
         model_store.download(models_dir, on_progress=report)
-        out.put(("model_done", None))
     except Exception as exc:
         out.put(("error", f"Model download failed: {type(exc).__name__}: {exc}"))
+        return
+
+    if not rescore:
+        out.put(("model_done", ""))
+        return
+    prompt, paths = rescore
+    out.put(("progress", f"AI is scoring {len(paths)} images..."))
+    try:
+        scores = ranking.score(prompt, paths, models_dir)
+        out.put(("rescored", (paths, scores, ranking.choose(scores))))
+    except Exception as exc:
+        # The download worked; only the bonus step failed. Say so, don't hide it.
+        out.put(("model_done", f" Couldn't rank the current images ({type(exc).__name__}: {exc})."))
 
 
 def _models_dir(create=False):
@@ -100,7 +120,11 @@ def _open_in_system(path):
     if sys.platform == "win32":
         os.startfile(path)
     elif sys.platform == "darwin":
-        subprocess.Popen(["open", path])
+        # run, not Popen: `open` exits at once, and its exit code says whether
+        # any app could open the file (Popen would hide that failure).
+        result = subprocess.run(["open", path], capture_output=True, timeout=10)
+        if result.returncode != 0:
+            raise OSError(result.stderr.decode(errors="replace").strip() or "no app can open it")
     else:
         subprocess.Popen(["xdg-open", path])
 
@@ -132,8 +156,14 @@ def _poll_results():
             state.status = f"Board saved: {os.path.basename(payload)}"
             try:
                 _open_in_system(payload)
-            except OSError as exc:
-                state.status = f"Board saved, but couldn't open PureRef: {exc}"
+            except (OSError, subprocess.SubprocessError):
+                state.status = (f"Board saved as {os.path.basename(payload)}, but it couldn't be "
+                                "opened. Is PureRef installed? Get it at pureref.com, or use "
+                                "Send to Blender. Opening the folder so you can find the file.")
+                try:
+                    _open_in_system(os.path.dirname(payload))
+                except (OSError, subprocess.SubprocessError):
+                    pass  # the message above still says what happened
             finished = True
         elif kind == "terms":
             text, found = payload
@@ -149,7 +179,23 @@ def _poll_results():
             state.status = f"No name suggestions ({payload}). Search uses your words as typed."
             finished = True
         elif kind == "model_done":
-            state.status = "AI model ready. Auto-pick is on for your next search."
+            state.status = "AI model ready. Auto-pick is on for your next search." + payload
+            finished = True
+        elif kind == "rescored":
+            paths, scores, picks = payload
+            score_of = dict(zip(paths, scores))
+            picked = {paths[i] for i in picks}
+            # A collection can't be sorted in place, so copy it out, sort, refill.
+            # Keep anything the user had already ticked by hand.
+            rows = [(item.title, item.url, item.path, item.selected) for item in state.results]
+            rows.sort(key=lambda row: -score_of.get(row[2], -1.0))
+            state.results.clear()
+            for title, url, path, was_selected in rows:
+                item = state.results.add()
+                item.title, item.url, item.path = title, url, path
+                item.score = score_of.get(path, -1.0)
+                item.selected = was_selected or path in picked
+            state.status = f"AI model ready: ranked these {len(rows)} images and picked {len(picked)}."
             finished = True
         elif kind == "done":
             kept, n_failed, n_rejected, note = payload
@@ -203,6 +249,7 @@ class ASSEMBLAGE_PG_state(bpy.types.PropertyGroup):
     results: bpy.props.CollectionProperty(type=ASSEMBLAGE_PG_result)
     suggestions: bpy.props.CollectionProperty(type=ASSEMBLAGE_PG_term)
     suggested_for: bpy.props.StringProperty(default="")
+    last_search: bpy.props.StringProperty(default="")  # what the current results came from
     auto_pick: bpy.props.BoolProperty(
         name="Auto-pick",
         description="Let the AI rank the images and tick the best ones for you",
@@ -241,6 +288,7 @@ class ASSEMBLAGE_OT_search(bpy.types.Operator):
 
         state.is_searching = True
         state.status = f"Searching for '{prompt}'..."
+        state.last_search = prompt
         # The worker can't call bpy, so the main thread looks up the folder
         # and hands over plain strings.
         folder = bpy.utils.extension_path_user(__package__, path="cache", create=True)
@@ -301,8 +349,9 @@ class ASSEMBLAGE_OT_use_term(bpy.types.Operator):
 
 class ASSEMBLAGE_OT_download_model(bpy.types.Operator):
     bl_idname = "assemblage.download_model"
-    bl_label = f"Download AI Model ({model_store.DOWNLOAD_MB} MB)"
-    bl_description = "One-time download of the model that ranks and auto-picks images"
+    bl_label = f"Get AI Auto-Pick ({model_store.DOWNLOAD_MB} MB, one time)"
+    bl_description = ("Downloads the AI that ranks results and ticks the best ones. "
+                      "Searching works without it")
 
     def execute(self, context):
         global _worker
@@ -316,10 +365,25 @@ class ASSEMBLAGE_OT_download_model(bpy.types.Operator):
             return {'CANCELLED'}
         state.is_searching = True
         state.status = "Starting model download..."
+        rescore = None
+        if state.results and state.auto_pick:
+            rescore = (state.last_search or state.prompt, [item.path for item in state.results])
         _worker = threading.Thread(target=_model_worker,
-                                   args=(_models_dir(create=True), _results), daemon=True)
+                                   args=(_models_dir(create=True), _results, rescore), daemon=True)
         _worker.start()
         bpy.app.timers.register(_poll_results, first_interval=0.1)
+        return {'FINISHED'}
+
+
+class ASSEMBLAGE_OT_open_network_prefs(bpy.types.Operator):
+    bl_idname = "assemblage.open_network_prefs"
+    bl_label = "Open Network Settings"
+    bl_description = "Open Preferences at System, where 'Allow Online Access' is (under Network)"
+
+    def execute(self, context):
+        # Only opens the window: turning internet access on is the user's choice.
+        bpy.ops.screen.userpref_show(section='SYSTEM')
+        self.report({'INFO'}, "Tick 'Allow Online Access' under Network, then come back")
         return {'FINISHED'}
 
 
@@ -443,77 +507,193 @@ class ASSEMBLAGE_OT_close_refs(bpy.types.Operator):
 # Panel: what the sidebar shows
 # ---------------------------------------------------------------- #
 
-class ASSEMBLAGE_PT_main(bpy.types.Panel):
-    bl_label = "Assemblage"
-    bl_idname = "ASSEMBLAGE_PT_main"
+# Target thumbnail width for each size, in Blender "UI units". One unit is
+# 20 px at 100% interface scale and grows with the user's scale setting, so
+# sizes look the same on a laptop and on a big monitor.
+THUMB_UNITS = {"SMALL": 6.0, "MEDIUM": 9.0, "LARGE": 13.0}
+
+
+class ASSEMBLAGE_AP_prefs(bpy.types.AddonPreferences):
+    """Settings Blender saves between sessions (Preferences > Add-ons)."""
+    bl_idname = __package__
+
+    thumb_size: bpy.props.EnumProperty(
+        name="Thumbnail Size",
+        items=[("SMALL", "S", "Small thumbnails, more per row"),
+               ("MEDIUM", "M", "Medium thumbnails"),
+               ("LARGE", "L", "Large thumbnails, fewer per row")],
+        default="MEDIUM",
+    )
+
+    def draw(self, context):
+        self.layout.prop(self, "thumb_size", expand=True)
+
+
+def _prefs(context):
+    """This add-on's saved preferences, or None if Blender can't find them."""
+    addon = context.preferences.addons.get(__package__)
+    return addon.preferences if addon else None
+
+
+class _AssemblagePanel:
+    """Settings every Assemblage panel shares: the N-sidebar's Assemblage tab."""
     bl_space_type = "VIEW_3D"
     bl_region_type = "UI"
     bl_category = "Assemblage"
 
+
+def _wrapped_label(layout, context, text, max_lines=3):
+    """Blender labels never wrap, so split long text across several labels.
+
+    Width is an estimate: about 7 px per character at 100% UI scale, minus
+    some padding for the panel and box edges.
+    """
+    px_per_char = 7 * context.preferences.system.ui_scale
+    chars = max(16, int((context.region.width - 40) / px_per_char))
+    lines = textwrap.wrap(text, width=chars) or [""]
+    if len(lines) > max_lines:
+        lines = lines[:max_lines]
+        lines[-1] = lines[-1].rstrip(" .,") + "…"
+    col = layout.column(align=True)
+    col.scale_y = 0.8  # tighter line spacing than separate labels normally get
+    for line in lines:
+        col.label(text=line)
+
+
+def _short(text, limit):
+    """Cut long text at `limit` characters and say so with an ellipsis."""
+    return text if len(text) <= limit else text[:limit - 1].rstrip() + "…"
+
+
+class ASSEMBLAGE_PT_main(_AssemblagePanel, bpy.types.Panel):
+    bl_label = "Assemblage"
+    bl_idname = "ASSEMBLAGE_PT_main"
+
     def draw(self, context):
         state = context.window_manager.assemblage
         layout = self.layout
+        if not bpy.app.online_access:
+            # Blender ships with internet access off. Say so before the first
+            # click fails, and put the setting one click away.
+            box = layout.box()
+            _wrapped_label(box, context, "Assemblage needs internet access to search. "
+                                         "Blender keeps it off until you allow it.")
+            box.operator("assemblage.open_network_prefs", icon='PREFERENCES')
         layout.prop(state, "prompt")
         if len(state.prompt.split()) < 2:  # vanishes once the prompt gets specific
-            layout.label(text="Tip: be specific, e.g. 'black mesh office chair'", icon='INFO')
+            _wrapped_label(layout, context,
+                "Tip: be specific, and say where if it matters, "
+                "e.g. 'drinking fountain on a hallway wall'")
 
-        row = layout.row()
-        row.enabled = not state.is_searching
+        busy = layout.column()
+        busy.enabled = not state.is_searching  # grey out everything in here while busy
+        row = busy.row(align=True)
+        row.scale_y = 1.3 # the two main actions get bigger buttons
         row.operator("assemblage.suggest", icon='QUESTION')
-        if state.suggestions:
-            box = layout.box()
-            box.label(text=f"Names for '{state.suggested_for[:28]}':")
-            for s in state.suggestions:
-                col = box.column(align=True)
-                col.enabled = not state.is_searching
-                op = col.operator("assemblage.use_term", text=s.term)
-                op.term, op.gloss = s.term, s.gloss
-                if s.gloss:
-                    col.label(text=s.gloss)
+        row.operator("assemblage.search", icon='VIEWZOOM')
+        if model_store.is_installed(_models_dir()):
+            busy.prop(state, "auto_pick")
+        else:
+            busy.operator("assemblage.download_model", icon='IMPORT')
+
+        if state.status:
+            _wrapped_label(layout, context, state.status, max_lines=5)
 
         if scene_board.find_ref_area(context.screen) is not None:
             layout.operator("assemblage.close_refs", icon='PANEL_CLOSE')
         elif bpy.data.collections.get(scene_board.COLLECTION_NAME):
             layout.operator("assemblage.show_refs", icon='IMAGE_REFERENCE')
 
+
+class ASSEMBLAGE_PT_suggestions(_AssemblagePanel, bpy.types.Panel):
+    bl_label = "Suggested Names"
+    bl_idname = "ASSEMBLAGE_PT_suggestions"
+    bl_parent_id = "ASSEMBLAGE_PT_main"  # makes this a collapsible sub-panel
+
+    @classmethod
+    def poll(cls, context):
+        # Returning False hides the whole sub-panel until there's something to show.
+        return len(context.window_manager.assemblage.suggestions) > 0
+
+    def draw(self, context):
+        state = context.window_manager.assemblage
+        layout = self.layout
         row = layout.row()
-        row.enabled = not state.is_searching  # grey out while busy
-        if model_store.is_installed(_models_dir()):
-            row.prop(state, "auto_pick")
-        else:
-            row.operator("assemblage.download_model", icon='IMPORT')
+        row.active = False  # dims the text without disabling anything: a caption look
+        row.label(text=f"For '{_short(state.suggested_for, 40)}'")
 
-        row = layout.row()
-        row.enabled = not state.is_searching
-        row.operator("assemblage.search", icon='VIEWZOOM')
+        for s in state.suggestions:
+            box = layout.box()
+            box.enabled = not state.is_searching
+            if s.gloss:
+                _wrapped_label(box, context, s.gloss)  # what it is, above its name
+            op = box.operator("assemblage.use_term", text=s.term,
+                              depress=(s.term == state.prompt))  # pressed = searched now
+            op.term, op.gloss = s.term, s.gloss
 
-        if state.status:
-            layout.label(text=state.status)
-        if not state.results:
-            return
 
+class ASSEMBLAGE_PT_results(_AssemblagePanel, bpy.types.Panel):
+    bl_label = "Results"
+    bl_idname = "ASSEMBLAGE_PT_results"
+    bl_parent_id = "ASSEMBLAGE_PT_main"
+
+    @classmethod
+    def poll(cls, context):
+        return len(context.window_manager.assemblage.results) > 0
+
+    def draw_header_preset(self, context):
+        # Drawn at the right end of the header, so it shows even when collapsed.
+        state = context.window_manager.assemblage
         n_selected = sum(item.selected for item in state.results)
-        layout.label(text=f"{n_selected} of {len(state.results)} selected")
+        self.layout.label(text=f"{n_selected} of {len(state.results)} picked")
+
+    def draw(self, context):
+        state = context.window_manager.assemblage
+        layout = self.layout
+        n_selected = sum(item.selected for item in state.results)
 
         row = layout.row(align=True)
         row.enabled = n_selected > 0 and not state.is_searching
         row.operator("assemblage.board_pureref", icon='EXPORT')
         row.operator("assemblage.board_blender", icon='IMAGE_REFERENCE')
 
-        grid = layout.grid_flow(columns=2, even_columns=True, align=False)
+        prefs = _prefs(context)
+        size = prefs.thumb_size if prefs else "MEDIUM"
+        if prefs:
+            split = layout.split(factor=0.35)
+            split.label(text="Thumbnails")
+            split.row(align=True).prop(prefs, "thumb_size", expand=True)
+
+        # Fit as many columns as the chosen size allows, then stretch the
+        # thumbnails to fill the row exactly. Widen the sidebar: more columns.
+        unit_px = 20 * context.preferences.system.ui_scale
+        avail = max(4.0, (context.region.width - 30) / unit_px)  # minus scrollbar/margins
+        columns = max(1, int(avail // THUMB_UNITS[size]))
+        cell = avail / columns
+        icon_scale = cell - 1.2              # room for the card border and gap
+        title_chars = max(6, int(cell * 20 / 7) - 6)  # ~7 px per letter, minus the button
+
+        # row_major: fill left to right, then down, so the best results read first
+        grid = layout.grid_flow(row_major=True, columns=columns, even_columns=True,
+                                even_rows=False, align=False)
         for item in state.results:
-            cell = grid.column(align=True)
+            card = grid.box().column(align=True)
             preview = _previews.get(item.path)
             if preview is not None:
-                cell.template_icon(icon_value=preview.icon_id, scale=6.0)
-            row = cell.row(align=True)
-            label = item.title[:20] if item.score < 0 else f"{item.score:.2f}  {item.title[:14]}"
-            row.prop(item, "selected", text=label)
-            op = row.operator("assemblage.view_image", text="", icon='IMAGE_DATA')
+                card.template_icon(icon_value=preview.icon_id, scale=icon_scale)
+            else:
+                card.label(text="No preview", icon='IMAGE')
+            row = card.row(align=True)
+            # A toggle button instead of a tiny checkbox: the whole bar lights up when picked.
+            row.prop(item, "selected", toggle=True,
+                     text=_short(item.title or "Untitled", title_chars),
+                     icon='CHECKBOX_HLT' if item.selected else 'CHECKBOX_DEHLT')
+            op = row.operator("assemblage.view_image", text="", icon='FULLSCREEN_ENTER')
             op.path = item.path
 
 
 classes = (
+    ASSEMBLAGE_AP_prefs,
     ASSEMBLAGE_PG_result,  # before state, because state's collection uses it
     ASSEMBLAGE_PG_term,
     ASSEMBLAGE_PG_state,
@@ -521,12 +701,15 @@ classes = (
     ASSEMBLAGE_OT_suggest,
     ASSEMBLAGE_OT_use_term,
     ASSEMBLAGE_OT_download_model,
+    ASSEMBLAGE_OT_open_network_prefs,
     ASSEMBLAGE_OT_view_image,
     ASSEMBLAGE_OT_board_pureref,
     ASSEMBLAGE_OT_board_blender,
     ASSEMBLAGE_OT_show_refs,
     ASSEMBLAGE_OT_close_refs,
-    ASSEMBLAGE_PT_main,
+    ASSEMBLAGE_PT_main,         # parents before their sub-panels
+    ASSEMBLAGE_PT_suggestions,
+    ASSEMBLAGE_PT_results,
 )
 
 

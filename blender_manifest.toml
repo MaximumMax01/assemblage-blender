@@ -1,7 +1,7 @@
 schema_version = "1.0.0"
 
 id = "assemblage"
-version = "0.1.0"
+version = "1.0.0"
 name = "Assemblage"
 tagline = "Build PureRef reference boards from a text prompt"
 maintainer = "Max <maxwellolsen@gmail.com"
@@ -44,4 +44,9 @@ paths_exclude_pattern = [
   "/worker/",
   "/dist/",
   "/docs/",
+    "/_labels/",
+  "/.venv/",
+  ".DS_Store",
+  "*.rej",
+  "*.orig",
 ]

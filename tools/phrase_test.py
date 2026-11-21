@@ -1,12 +1,11 @@
 """Measure which phrases and formulas actually separate good references from bad.
 
-Developer tool (dev venv). First mark good images on the score sheet, copy the
-list, and save it:   Get-Clipboard | Set-Content _test_downloads\\good.txt
-Then:                & $dev tools\\phrase_test.py stage light
+Developer tool. Label a set first (score_sheet.py --label), save the copied
+list as good.txt in that folder (Mac: pbpaste > _labels/office-chair/good.txt),
+then:   python3 tools/phrase_test.py --folder _labels/office-chair
 """
 
 import argparse
-import glob
 import os
 import sys
 
@@ -16,6 +15,8 @@ from PIL import Image
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 import clip_model  # noqa: E402
 import scoring  # noqa: E402
+
+import labels  # noqa: E402  (tools/labels.py)
 
 MODEL = "ViT-B-32"
 
@@ -38,6 +39,8 @@ CANDIDATES = [  # {s} = the subject. Kept generic on purpose: they must work for
     "a dark, blurry photo",
     "a crowd of people",
     "a wide shot of a large scene",
+    "a photo of a {s} in a real-world setting",   # context candidates
+    "a photo of a {s} installed and in use",
 ]
 
 
@@ -62,15 +65,13 @@ def top8(scores, good):
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("prompt", nargs="+")
+    parser.add_argument("prompt", nargs="*", help="what was searched (default: subject.txt)")
     parser.add_argument("--folder", default="_test_downloads")
     args = parser.parse_args()
-    s = " ".join(args.prompt)
+    s = labels.read_subject(args.folder, args.prompt)
 
-    paths = sorted(glob.glob(os.path.join(args.folder, "*.jpg")) +
-                   glob.glob(os.path.join(args.folder, "*.png")))
-    with open(os.path.join(args.folder, "good.txt"), encoding="utf-8-sig") as f:
-        names = {line.strip() for line in f if line.strip()}
+    paths = labels.image_paths(args.folder)
+    names = labels.read_labels(args.folder)  # both kinds of good count as good here
     good = np.array([os.path.basename(p) in names for p in paths])
     print(f"{len(paths)} images, {good.sum()} marked good\n")
 

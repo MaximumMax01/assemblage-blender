@@ -6,14 +6,7 @@
 // through the AI binding. On the Workers Free plan, going past the daily free
 // allocation makes calls fail (the add-on then searches the user's own words);
 
-const DEFAULT_MODEL = "@cf/google/gemma-4-26b-a4b-it";
-// Models the eval script may ask for with ?model=. Kept to cheap ones so a
-// stranger can't point the endpoint at an expensive model.
-const ALLOWED_MODELS = new Set([
-  DEFAULT_MODEL,
-  "@cf/meta/llama-3.1-8b-instruct-fp8-fast",
-  "@cf/meta/llama-3.3-70b-instruct-fp8-fast",
-]);
+const MODEL = "@cf/google/gemma-4-26b-a4b-it";
 
 const MAX_INPUT_CHARS = 300;
 const MAX_TERMS = 5;
@@ -126,19 +119,7 @@ export default {
     if (!text) return json({ error: "empty" }, 400);
     text = text.slice(0, MAX_INPUT_CHARS);
 
-    const params = new URL(request.url).searchParams;
-    const asked = params.get("model");
-    const model = asked && ALLOWED_MODELS.has(asked) ? asked : DEFAULT_MODEL;
-
-    // Thinking models (Gemma 4) reason before answering. "off" asks the chat
-    // template to skip it; low/medium/high set how much. Experiment knob.
-    const effort = params.get("effort") || "off";
-    const thinking =
-      effort === "off"
-        ? { chat_template_kwargs: { enable_thinking: false } }
-        : ["low", "medium", "high"].includes(effort)
-          ? { reasoning_effort: effort }
-          : {};
+    const model = MODEL;
 
     let result;
     try {
@@ -149,9 +130,9 @@ export default {
           { role: "assistant", content: EXAMPLE_REPLY },
           { role: "user", content: text },
         ],
-        max_tokens: 1000,
+        max_tokens: 300,
         temperature: 0.2,
-        ...thinking,
+        chat_template_kwargs: { enable_thinking: false },
       });
     } catch (err) {
       // Daily free allocation used up, model unavailable, etc.
@@ -162,7 +143,7 @@ export default {
     }
 
     // Every call: how many tokens and neurons did it cost? (shows in `wrangler tail`)
-    console.log(model, effort, JSON.stringify(result?.usage ?? {}));
+    console.log(model, JSON.stringify(result?.usage ?? {}));
     const terms = clean(parseTerms(extractText(result)));
     if (!terms.length) {
       // Visible with `npx wrangler tail`: what did the model actually send?
