@@ -28,7 +28,9 @@ is checked against a fingerprint, and runs entirely on your computer.
    duplicates), and ranked by the AI\*, best first. The best few are ticked.
 3. Untick anything you don't want, tick anything it missed.
 4. **Send to Blender** lays the board out in a side viewport, far from your
-   model. Use `shift + click` to navigate. **Send to PureRef** saves a .pur file and opens it. \* If you choose to download the AI model you must enable internet access in `Preferences > System > Network`
+   model. Use `shift + click` to navigate. **Send to PureRef** saves a .pur file and opens it.
+   
+\* If you choose to download the AI model you must enable internet access in `Preferences > System > Network`
 
 ## Requirements
 
