@@ -1,0 +1,58 @@
+{
+  "version": "v1",
+  "blocklist": [],
+  "data": [
+    {
+      "schema_version": "1.0.0",
+      "id": "assemblage",
+      "name": "Assemblage",
+      "tagline": "Find reference images from a description, inside Blender",
+      "version": "1.0.0",
+      "type": "add-on",
+      "maintainer": "Max <dazzled3d@gmail.com>",
+      "license": [
+        "SPDX:GPL-3.0-or-later"
+      ],
+      "blender_version_min": "5.2.0",
+      "permissions": {
+        "network": "Search the web for reference images",
+        "files": "Save downloaded images and reference boards"
+      },
+      "platforms": [
+        "macos-arm64"
+      ],
+      "python_versions": [
+        "3.13"
+      ],
+      "archive_url": "https://github.com/MaximumMax01/assemblage-blender/releases/download/v1.0.0/assemblage-macos_arm64.zip",
+      "archive_size": 43156149,
+      "archive_hash": "sha256:91e5c10ddd36d8f68710ee86e7dc5110f133ad3fc2c8ae2cb281af305ea3afb0"
+    },
+    {
+      "schema_version": "1.0.0",
+      "id": "assemblage",
+      "name": "Assemblage",
+      "tagline": "Find reference images from a description, inside Blender",
+      "version": "1.0.0",
+      "type": "add-on",
+      "maintainer": "Max <dazzled3d@gmail.com>",
+      "license": [
+        "SPDX:GPL-3.0-or-later"
+      ],
+      "blender_version_min": "5.2.0",
+      "permissions": {
+        "network": "Search the web for reference images",
+        "files": "Save downloaded images and reference boards"
+      },
+      "platforms": [
+        "windows-x64"
+      ],
+      "python_versions": [
+        "3.13"
+      ],
+      "archive_url": "https://github.com/MaximumMax01/assemblage-blender/releases/download/v1.0.0/assemblage-windows_x64.zip",
+      "archive_size": 34149939,
+      "archive_hash": "sha256:02c5d10e547f2573fc2e21324b64e9603e4f20db66fe62e17bff14cb46f0410a"
+    }
+  ]
+}
