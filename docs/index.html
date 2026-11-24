@@ -9,6 +9,10 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Assemblage: reference boards inside Blender</title>
 <meta name="description" content="Free Blender extension. Type what you're modelling and get a reference board without leaving Blender.">
+<meta property="og:title" content="Assemblage: reference boards inside Blender">
+<meta property="og:description" content="Free Blender extension. Type what you're modelling and get a reference board without leaving Blender.">
+<meta property="og:type" content="website">
+<meta name="twitter:card" content="summary">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,400..800&display=swap" rel="stylesheet">
@@ -108,15 +112,7 @@
   .slot > a { flex: 1; }
   .grip { flex: none; width: 8px; height: 14px; align-self: center; margin-left: -4px; fill: currentColor; opacity: 0.5; transition: opacity 0.2s; }
   .slot.near .grip, .slot.over .grip { opacity: 0.95; }
-  .slot.over > a, .slot:focus-within > a { transform: translateY(-3px); box-shadow: 0 12px 26px -10px var(--shadow); }
-  .slot.near > a { transform: translate(8px, -4px) rotate(1deg); box-shadow: 0 14px 28px -10px var(--shadow); }
-  @media (prefers-reduced-motion: no-preference) {
-    .slot.near > a { animation: tug 1.7s cubic-bezier(.45,0,.3,1) infinite; }
-    @keyframes tug {
-      0%, 100% { transform: translate(0, 0) rotate(0); box-shadow: 0 0 0 0 transparent; }
-      40%, 62% { transform: translate(16px, -6px) rotate(1.6deg); box-shadow: 0 16px 30px -10px var(--shadow); }
-    }
-  }
+  .slot:focus-within > a { transform: translateY(-3px); box-shadow: 0 12px 26px -10px var(--shadow); }
   .tip { position: absolute; left: 10px; bottom: calc(100% + 12px); z-index: 2; display: flex; align-items: center; gap: 6px;
          padding: 5px 11px 5px 8px; border-radius: 99px; background: var(--pink); color: #fff;
          font-size: 13px; font-weight: 600; white-space: nowrap; pointer-events: none;
@@ -138,6 +134,30 @@
   .how { margin: 16px 0 0; font-size: 15px; color: var(--muted); }
   .how b { color: var(--ink); font-weight: 550; }
   kbd { font: 550 13px var(--font); padding: 1px 6px; border: 1px solid var(--line); border-bottom-width: 2px; border-radius: 4px; color: var(--ink); }
+  .thanks { position: relative; margin: 28px 0 0; padding: 20px 22px; border: 1px solid var(--line); border-radius: 12px; background: var(--canvas); }
+  .thanks[hidden] { display: none; }
+  .thanks h2 { font-size: 20px; letter-spacing: -0.02em; margin: 0 0 4px; padding-right: 28px; }
+  .thanks p { margin: 0; font-size: 15px; color: var(--muted); }
+  .thanks .actions { display: flex; flex-wrap: wrap; gap: 8px; margin: 16px 0 0; }
+  .thanks .actions > * { font: 550 15px var(--font); padding: 9px 15px; border-radius: 8px; cursor: pointer; text-decoration: none;
+                         border: 1px solid var(--line); background: var(--panel); color: var(--ink); }
+  .thanks .actions > *:hover { border-color: var(--muted); }
+  .thanks .actions .main { background: var(--button); color: var(--on-button); border-color: var(--button); }
+  .thanks .actions .main:hover { background: color-mix(in srgb, var(--button) 85%, var(--page)); }
+  .thanks .close { position: absolute; top: 12px; right: 12px; width: 30px; height: 30px; display: grid; place-items: center;
+                   border: 0; border-radius: 6px; background: none; color: var(--muted); font-size: 20px; line-height: 1; cursor: pointer; }
+  .thanks .close:hover { color: var(--ink); background: var(--line); }
+  #share-note { margin-top: 10px; min-height: 0; color: var(--ink); font-weight: 550; }
+  #share-note:empty { display: none; }
+  .burst { position: absolute; left: -26px; top: -26px; width: 64px; height: 64px; overflow: visible; pointer-events: none; }
+  .burst path { fill: none; stroke-width: 2.6; stroke-linecap: round; }
+  @media (prefers-reduced-motion: no-preference) {
+    .thanks.pop { animation: pop 0.45s cubic-bezier(.3,1.35,.5,1); transform-origin: 30px 0; }
+    @keyframes pop { from { opacity: 0; transform: translateY(8px) scale(.96); } }
+    .thanks.pop .burst path { stroke-dasharray: 1; stroke-dashoffset: 1; animation: draw 0.4s ease-out forwards; }
+    .thanks.pop .burst path:nth-child(2) { animation-delay: 0.05s; } .thanks.pop .burst path:nth-child(3) { animation-delay: 0.1s; }
+    .thanks.pop .burst path:nth-child(4) { animation-delay: 0.15s; } .thanks.pop .burst path:nth-child(5) { animation-delay: 0.2s; }
+  }
   #feedback { min-height: 1.6em; margin: 6px 0 0; font-size: 15px; font-weight: 550; }
 
   .phone { display: none; margin: 32px 0 0; padding: 16px 18px; border-radius: 10px; background: var(--canvas); }
@@ -231,6 +251,24 @@
     <p class="how"><svg class="doodle up" viewBox="0 0 24 26" aria-hidden="true" style="--d:.9s"><path pathLength="1" d="M5 24 C 3 15, 7 8, 17 4"/><path pathLength="1" d="M10 2.5 L17 4 L14.5 10.5"/></svg><b>Drag the button onto your Blender window</b> and click Install. Then press <span class="ring"><kbd>N</kbd><svg class="doodle" viewBox="0 0 60 34" preserveAspectRatio="none" aria-hidden="true" style="--d:1.4s"><path pathLength="1" d="M34 4 C 18 2, 4 8, 5 18 C 6 28, 26 32, 42 29 C 56 26, 58 12, 46 6 C 40 3, 30 3, 22 5"/></svg></span> in the 3D viewport and open the Assemblage tab.</p>
     <p class="how" id="version">Free, for Blender 5.2 or newer.</p>
     <p id="feedback" role="status"></p>
+
+    <div class="thanks" id="thanks" hidden>
+      <svg class="burst" viewBox="0 0 64 64" aria-hidden="true">
+        <path pathLength="1" d="M26 18 L22 6" style="stroke: var(--orange)"/>
+        <path pathLength="1" d="M18 24 L6 20" style="stroke: var(--pink)"/>
+        <path pathLength="1" d="M34 18 C 37 12, 40 9, 44 7" style="stroke: var(--blue)"/>
+        <path pathLength="1" d="M18 32 C 12 34, 9 37, 7 41" style="stroke: var(--green)"/>
+        <path pathLength="1" d="M13 11 L15 13" style="stroke: var(--orange)"/>
+      </svg>
+      <button type="button" class="close" id="thanks-close" aria-label="Close">×</button>
+      <h2 id="thanks-title">Thanks for trying Assemblage!</h2>
+      <p id="thanks-next">In Blender, click Install. Then press N in the 3D viewport and open the Assemblage tab.</p>
+      <div class="actions">
+        <button type="button" class="main" id="share-friend">Share with a friend</button>
+        <a href="https://github.com/MaximumMax01/assemblage-blender">Star it on GitHub</a>
+      </div>
+      <p id="share-note" role="status"></p>
+    </div>
   </header>
 
   <section aria-labelledby="using">
@@ -337,28 +375,80 @@
   if (matchMedia("(pointer: coarse)").matches && !matchMedia("(pointer: fine)").matches) {
     document.getElementById("phone").classList.add("show");
     document.body.classList.add("on-phone");
-    document.getElementById("share").addEventListener("click", async () => {
-      const page = { title: "Assemblage for Blender", url: location.href.split("#")[0] };
-      try {
-        if (navigator.share) { await navigator.share(page); return; }
-        await navigator.clipboard.writeText(page.url);
-        say("Link copied. Paste it into a message or email to yourself.");
-      } catch (e) { /* share sheet closed */ }
-    });
+    document.getElementById("share").addEventListener("click", () =>
+      sharePage({ title: "Assemblage for Blender" }, "Link copied. Paste it into a message or email to yourself.", say));
   }
 
+  // Opens the system share sheet where there is one, otherwise copies the link.
+  async function sharePage(extra, copiedText, report) {
+    const page = { url: location.href.split("#")[0], ...extra };
+    if (navigator.share) {
+      try { await navigator.share(page); } catch (e) { /* share sheet closed */ }
+      return;
+    }
+    try { await navigator.clipboard.writeText(page.url); report(copiedText); }
+    catch (e) { report("Copy this link: " + page.url); }
+  }
+
+  // Thank-you card, shown after a drag out of the page or a click to download.
+  const thanks = document.getElementById("thanks");
+  function showThanks(next) {
+    say("");
+    document.getElementById("thanks-next").textContent = next;
+    document.getElementById("share-note").textContent = "";
+    thanks.hidden = false;
+    thanks.classList.remove("pop"); void thanks.offsetWidth; thanks.classList.add("pop");
+  }
+  document.getElementById("thanks-close").addEventListener("click", () => { thanks.hidden = true; });
+  document.getElementById("share-friend").addEventListener("click", () =>
+    sharePage({ title: "Assemblage", text: "A free Blender extension that builds a reference board for whatever you're modelling." },
+              "Link copied. Send it to someone who models.",
+              t => { document.getElementById("share-note").textContent = t; }));
+
   // Drag cue: when the pointer comes near the main button, it lifts and tugs
-  // to show it can be dragged. Once the pointer is on a button it holds still.
+  // to show it can be dragged. Once the pointer is on a button it glides into
+  // a lifted pose and holds still, so it's easy to grab. Every change starts
+  // from wherever the button is at that moment, so nothing snaps.
+  const calm = matchMedia("(prefers-reduced-motion: reduce)");
   let dragging = false, px = 0, py = 0, queued = false;
-  function clearNear() { document.querySelectorAll(".slot").forEach(s => s.classList.remove("near", "over")); }
+  const shadow = (y, blur) => `0 ${y}px ${blur}px -10px ${getComputedStyle(document.documentElement).getPropertyValue("--shadow").trim()}`;
+  const POSE = {
+    rest: () => ({ transform: "translate(0px, 0px) rotate(0deg)", boxShadow: "0 0 0 -10px transparent" }),
+    lift: () => ({ transform: "translate(0px, -3px) rotate(0deg)", boxShadow: shadow(12, 26) }),
+    out:  () => ({ transform: "translate(16px, -6px) rotate(1.6deg)", boxShadow: shadow(16, 30) })
+  };
+  function setState(slot, state) {
+    if (slot.dataset.state === (state || "rest")) return;
+    slot.dataset.state = state || "rest";
+    slot.classList.toggle("near", state === "near");
+    slot.classList.toggle("over", state === "over");
+    const a = slot.querySelector("a");
+    const now = getComputedStyle(a);
+    const from = { transform: now.transform === "none" ? POSE.rest().transform : now.transform, boxShadow: now.boxShadow };
+    a.getAnimations().forEach(x => x.cancel());
+    const settle = to => a.animate([from, to], { duration: 380, easing: "cubic-bezier(.3,1.25,.5,1)", fill: "forwards" });
+    if (state === "over" || (state === "near" && calm.matches)) {
+      settle(POSE.lift());
+    } else if (state === "near") {
+      // Ease back to rest, then start the slow tug loop from there.
+      a.animate([from, POSE.rest()], { duration: 220, easing: "ease-out", fill: "forwards" }).onfinish = () => {
+        if (slot.dataset.state !== "near") return;
+        a.animate([
+          { ...POSE.rest(), offset: 0 }, { ...POSE.out(), offset: 0.4 }, { ...POSE.out(), offset: 0.6 }, { ...POSE.rest(), offset: 1 }
+        ], { duration: 1700, easing: "cubic-bezier(.45,0,.3,1)", iterations: Infinity });
+      };
+    } else {
+      a.animate([from, POSE.rest()], { duration: 380, easing: "cubic-bezier(.3,1.1,.5,1)" });
+    }
+  }
+  function clearNear() { document.querySelectorAll(".slot").forEach(s => setState(s, null)); }
   function checkNear() {
     queued = false;
     if (dragging) return;
     document.querySelectorAll(".slot").forEach(s => {
       const r = s.getBoundingClientRect();
       const d = Math.hypot(Math.max(r.left - px, 0, px - r.right), Math.max(r.top - py, 0, py - r.bottom));
-      s.classList.toggle("over", d === 0);
-      s.classList.toggle("near", d > 0 && d < 80 && s.classList.contains("lead"));
+      setState(s, d === 0 ? "over" : (d < 80 && s.classList.contains("lead")) ? "near" : null);
     });
   }
   if (matchMedia("(pointer: fine)").matches) {
@@ -427,8 +517,15 @@
         a.append(label, size);
         a.title = "Drag into Blender to install, or click to download the zip";
         a.addEventListener("dragstart", () => { dragging = true; clearNear(); say("Drop it anywhere on the Blender window."); });
-        a.addEventListener("dragend", () => { dragging = false; say("Blender should now ask you to install. Click Install."); });
-        a.addEventListener("click", () => say("Downloading the zip. When it's done, drag the zip into Blender."));
+        a.addEventListener("dragend", e => {
+          dragging = false;
+          // Dropped back onto this page (or cancelled with Esc): no thanks yet.
+          const onPage = e.clientX > 0 && e.clientY > 0 && e.clientX < innerWidth && e.clientY < innerHeight;
+          if (e.dataTransfer.dropEffect === "none" && onPage) { say("Drop it on the Blender window to install."); return; }
+          showThanks("Blender should now ask you to install it. Click Install, then press N in the 3D viewport and open the Assemblage tab.");
+        });
+        a.addEventListener("click", () =>
+          showThanks("The zip is downloading. When it's done, drag the zip into Blender and click Install. Then press N in the 3D viewport and open the Assemblage tab."));
         slot.appendChild(a);
         box.appendChild(slot);
       });
