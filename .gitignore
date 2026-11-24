@@ -4,3 +4,5 @@ _models
 __pycache__/
 
 _labels/
+.DS_Store
+tools/downloads.csv
