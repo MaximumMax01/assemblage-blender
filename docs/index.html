@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Assemblage: reference boards inside Blender</title>
+<meta name="description" content="Free Blender add-on: describe what you're modelling and get a reference board without leaving Blender.">
+<style>
+  :root { --bg: #f6f6f4; --card: #fff; --text: #1d1d1b; --muted: #66665f; --accent: #e87d0d; --border: #deded8; }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg: #1b1b1b; --card: #262626; --text: #eeeeea; --muted: #a6a6a0; --border: #3a3a3a; }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text);
+         font: 17px/1.6 system-ui, -apple-system, "Segoe UI", sans-serif; }
+  main { max-width: 680px; margin: 0 auto; padding: 48px 20px 64px; }
+  h1 { font-size: 40px; margin: 0; letter-spacing: -0.5px; }
+  .tagline { font-size: 20px; color: var(--muted); margin: 4px 0 28px; }
+  #demo { width: 100%; border-radius: 10px; border: 1px solid var(--border); display: block; margin-bottom: 32px; }
+  .card { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 24px; }
+  h2 { font-size: 22px; margin: 0 0 12px; }
+  ol { padding-left: 22px; margin: 0; }
+  li { margin: 10px 0; }
+  .buttons { display: flex; flex-direction: column; gap: 10px; margin: 14px 0 6px; }
+  a.get { display: block; text-align: center; text-decoration: none; font-weight: 600; font-size: 18px;
+          padding: 16px 20px; border-radius: 10px; border: 2px solid var(--accent); color: var(--accent);
+          cursor: grab; }
+  a.get.primary { background: var(--accent); color: #fff; }
+  a.get small { display: block; font-weight: 400; font-size: 13px; opacity: 0.85; }
+  .note { font-size: 14px; color: var(--muted); margin-top: 18px; }
+  footer { font-size: 14px; color: var(--muted); margin-top: 36px; }
+  footer a, .note a { color: inherit; }
+  kbd { border: 1px solid var(--border); border-bottom-width: 2px; border-radius: 4px; padding: 0 5px; font-size: 14px; }
+</style>
+</head>
+<body>
+<main>
+  <h1>Assemblage</h1>
+  <p class="tagline">Describe what you're modelling. Get a reference board, inside Blender.</p>
+
+  <!-- Add docs/demo.gif (or demo.mp4 as a <video>) and it shows here. Hidden if missing. -->
+  <img id="demo" src="demo.gif" alt="Typing a description, clicking Suggest Names, and a reference board appearing in Blender" onerror="this.remove()">
+
+  <div class="card">
+    <h2>Install in one drag</h2>
+    <ol>
+      <li>Open <b>Blender 5.2 or newer</b>.</li>
+      <li><b>Drag</b> this button onto the Blender window:
+        <div class="buttons" id="buttons">
+          <a class="get primary" href="https://github.com/MaximumMax01/assemblage-blender/releases/latest">Download Assemblage</a>
+        </div>
+      </li>
+      <li>Click <b>Install</b> when Blender asks. If it asks to allow online access, say yes: Assemblage needs it to search.</li>
+      <li>In the 3D viewport, press <kbd>N</kbd> and open the <b>Assemblage</b> tab.</li>
+    </ol>
+    <p class="note">
+      Prefer a file? <b>Click</b> the button instead of dragging it: the zip downloads, then drag the zip into Blender.
+      <b>Mac + Safari:</b> if it unzips by itself, right-click the button and choose <i>Download Linked File</i>.
+      Installed by dragging? Blender will offer updates in Preferences &rarr; Get Extensions.
+    </p>
+  </div>
+
+  <footer>
+    <p id="version"></p>
+    <p>Free and open source (GPL-3.0). It doesn't generate images: it finds real reference photos
+      and ranks them with an AI model that runs on your computer.
+      <a href="https://github.com/MaximumMax01/assemblage-blender#privacy-and-images">Privacy</a> ·
+      <a href="https://github.com/MaximumMax01/assemblage-blender">Source code</a> ·
+      <a href="https://github.com/MaximumMax01/assemblage-blender/issues">Report a problem</a></p>
+  </footer>
+</main>
+
+<script>
+  // Blender installs a dragged link when it ends in .zip and carries a
+  // "repository" parameter pointing at the listing (index.json). The same
+  // link, clicked, just downloads the zip: GitHub ignores the extra parameters.
+  const LABELS = { "windows-x64": "Windows", "macos-arm64": "Mac (Apple Silicon)", "macos-x64": "Mac (Intel)", "linux-x64": "Linux" };
+
+  function myPlatform() {
+    const p = (navigator.userAgentData && navigator.userAgentData.platform) || navigator.platform || navigator.userAgent;
+    if (/mac/i.test(p)) return "macos-arm64";
+    if (/win/i.test(p)) return "windows-x64";
+    return null;
+  }
+
+  fetch("index.json")
+    .then(response => response.json())
+    .then(index => {
+      const listing = new URL("index.json", location.href).href;
+      const entries = (index.data || []).filter(e => e.id === "assemblage");
+      if (!entries.length) return;  // keep the fallback link
+      const mine = myPlatform();
+      entries.sort((a, b) => ((b.platforms || []).includes(mine)) - ((a.platforms || []).includes(mine)));
+
+      const box = document.getElementById("buttons");
+      box.innerHTML = "";
+      entries.forEach((entry, i) => {
+        const platforms = entry.platforms || [];
+        const params = new URLSearchParams({ repository: listing, blender_version_min: entry.blender_version_min });
+        if (entry.blender_version_max) params.set("blender_version_max", entry.blender_version_max);
+        if (platforms.length) params.set("platforms", platforms.join(","));
+        const a = document.createElement("a");
+        a.className = "get" + (i === 0 ? " primary" : "");
+        a.href = entry.archive_url + "?" + params.toString();
+        const label = platforms.map(p => LABELS[p] || p).join(", ") || "all systems";
+        a.innerHTML = `Assemblage for ${label}<small>drag me into Blender &middot; ${(entry.archive_size / 1048576).toFixed(0)} MB</small>`;
+        box.appendChild(a);
+      });
+      document.getElementById("version").textContent = `Version ${entries[0].version} · needs Blender ${entries[0].blender_version_min} or newer`;
+    })
+    .catch(() => {});  // listing unreachable: the plain release link still works
+</script>
+</body>
+</html>
