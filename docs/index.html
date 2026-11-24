@@ -3,248 +3,244 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Assemblage: find references inside Blender</title>
-<meta name="description" content="Free Blender add-on. Describe what you're modelling, learn what it's called, and get a reference board without leaving Blender.">
+<title>Assemblage: reference boards inside Blender</title>
+<meta name="description" content="Free Blender extension. Type what you're modelling and get a reference board without leaving Blender.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,400..800&family=Architects+Daughter&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,400..800&display=swap" rel="stylesheet">
 <style>
   :root {
-    --vellum: #edf0ec; --sheet: #f8faf7; --graphite: #23272b; --lead: #6b7178;
-    --redline: #d4342c; --redline-ink: #ffffff; --rule: #c9cfc8;
-    --hand: "Architects Daughter", "Segoe Print", "Bradley Hand", "Chalkboard SE", cursive;
-    --ui: "Archivo", system-ui, -apple-system, "Segoe UI", sans-serif;
+    --page: #ffffff; --ink: #191919; --muted: #6f6e69; --line: #e8e7e3;
+    --canvas: #f6f5f3; --dot: #dcdad5; --panel: #ffffff;
+    --button: #191919; --on-button: #ffffff;
+    --yes: #2d7a4c; --no: #c2463a;
+    --font: "Inter", system-ui, -apple-system, "Segoe UI", sans-serif;
   }
   @media (prefers-color-scheme: dark) {
-    :root { --vellum: #16191b; --sheet: #1e2124; --graphite: #dde1dc; --lead: #9aa1a7;
-            --redline: #ff5f52; --redline-ink: #1e2124; --rule: #3a4045; }
+    :root { --page: #191919; --ink: #ecebe8; --muted: #9b9a95; --line: #2f2f2d;
+            --canvas: #202020; --dot: #353533; --panel: #262626;
+            --button: #ecebe8; --on-button: #191919;
+            --yes: #6cc58f; --no: #f08072; }
   }
+
   * { box-sizing: border-box; }
-  html { background: var(--vellum); }
-  body { margin: 0; color: var(--graphite); font: 400 17px/1.55 var(--ui); }
-  a { color: inherit; }
-  :focus-visible { outline: 3px solid var(--redline); outline-offset: 3px; }
+  html { background: var(--page); }
+  body { margin: 0; color: var(--ink); font: 400 16px/1.6 var(--font); font-optical-sizing: auto;
+         -webkit-font-smoothing: antialiased; }
+  a { color: inherit; text-decoration-color: var(--line); text-underline-offset: 3px; }
+  a:hover { text-decoration-color: currentColor; }
+  :focus-visible { outline: 2px solid var(--ink); outline-offset: 3px; border-radius: 4px; }
 
-  /* The page is one drawing sheet: a thin border with a margin, like a printed drawing. */
-  .sheet { max-width: 820px; margin: 28px auto; padding: 40px 44px 28px;
-           background: var(--sheet); border: 1.5px solid var(--graphite); }
-  @media (max-width: 640px) { .sheet { margin: 0; border-width: 0; padding: 28px 20px; } }
+  .wrap { max-width: 1040px; margin: 0 auto; padding: 0 32px; }
+  .text { max-width: 640px; }
+  @media (max-width: 600px) { .wrap { padding: 0 20px; } }
 
-  h1 { font: 800 clamp(44px, 9vw, 76px)/0.95 var(--ui); font-stretch: 125%; letter-spacing: -0.02em; margin: 0; }
-  .lede { font-size: 21px; line-height: 1.4; max-width: 34ch; margin: 14px 0 0; }
+  /* ---------- Top ---------- */
+  .bar { display: flex; justify-content: flex-end; gap: 22px; padding: 22px 0 0; font-size: 14px; color: var(--muted); }
+  .bar a { text-decoration: none; }
+  .bar a:hover { color: var(--ink); }
 
-  /* The elevation drawing: plain wall, hand-lettered callouts. */
-  .drawing { margin: 30px 0 8px; }
-  .drawing svg { width: 100%; height: auto; display: block; }
-  .ln { stroke: var(--graphite); fill: none; stroke-width: 1.5; }
-  .thin { stroke: var(--graphite); fill: none; stroke-width: 0.75; opacity: 0.7; }
-  .hatch { stroke: var(--lead); stroke-width: 0.75; }
-  .q { font: 18px var(--hand); fill: var(--lead); }
-  .a { font: 23px var(--hand); fill: var(--redline); }
-  .lead { stroke: var(--redline); fill: none; stroke-width: 1.5; }
-  .dot { fill: var(--redline); }
-  .dim { font: 13px var(--hand); fill: var(--lead); }
-  @media (prefers-reduced-motion: no-preference) {
-    .lead { stroke-dasharray: 260; stroke-dashoffset: 260; animation: draw 0.9s ease-out forwards; }
-    .callout-2 .lead { animation-delay: 0.5s; }
-    .a { opacity: 0; animation: ink 0.4s ease-out forwards 0.8s; }
-    .callout-2 .a { animation-delay: 1.3s; }
-    @keyframes draw { to { stroke-dashoffset: 0; } }
-    @keyframes ink { to { opacity: 1; } }
-  }
-  .caption { font-size: 15px; color: var(--lead); margin: 0 0 30px; }
+  header { padding: 72px 0 0; }
+  @media (max-width: 600px) { header { padding-top: 40px; } }
+  h1 { margin: 0; font-size: clamp(48px, 8vw, 76px); line-height: 1; font-weight: 750; letter-spacing: -0.045em; }
+  .sub { margin: 14px 0 0; font-size: clamp(20px, 2.6vw, 24px); line-height: 1.35; letter-spacing: -0.015em; color: var(--muted); }
 
-  #demo { width: 100%; display: block; border: 1.5px solid var(--graphite); margin: 0 0 30px; }
-
-  /* The install box is a drawing title block: a ruled grid of labelled cells. */
-  .title-block { border: 1.5px solid var(--graphite); }
-  .tb-head { padding: 14px 18px; display: flex; align-items: baseline; justify-content: space-between;
-             gap: 4px 12px; flex-wrap: wrap; }
-  .tb-head h2 { font: 700 26px/1.1 var(--ui); font-stretch: 112%; margin: 0; }
-  .tb-head p { margin: 0; font-size: 14px; color: var(--lead); }
-  .steps { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: 1fr 1fr;
-           border-top: 0.75px solid var(--graphite); }
-  .steps li { padding: 14px 18px; display: grid; grid-template-columns: 30px 1fr; gap: 6px; font-size: 16px; }
-  .steps li:nth-child(odd) { border-right: 0.75px solid var(--graphite); }
-  .steps li:nth-child(n+3) { border-top: 0.75px solid var(--graphite); }
-  .steps b { font: 800 24px/1 var(--ui); font-stretch: 125%; color: var(--lead); }
-  .tb-get { padding: 16px 18px; border-top: 0.75px solid var(--graphite); }
-  @media (max-width: 560px) {
-    .steps { grid-template-columns: 1fr; }
-    .steps li:nth-child(odd) { border-right: 0; }
-    .steps li:nth-child(n+2) { border-top: 0.75px solid var(--graphite); }
-  }
-
-  .get { display: flex; flex-direction: column; gap: 10px; }
-  .get a { display: grid; grid-template-columns: 1fr auto; align-items: center; gap: 4px 14px;
-           padding: 16px 20px; border: 2px solid var(--redline); border-radius: 6px;
-           text-decoration: none; cursor: grab; color: var(--redline); }
+  .get { display: flex; flex-wrap: wrap; align-items: stretch; gap: 10px; margin: 36px 0 0; }
+  .get a { display: inline-flex; align-items: baseline; gap: 12px; padding: 13px 20px; border-radius: 8px;
+           border: 1px solid var(--line); text-decoration: none; font-weight: 550; font-size: 16px;
+           cursor: grab; transition: background-color 0.12s, border-color 0.12s; }
+  .get a:hover { border-color: var(--muted); }
   .get a:active { cursor: grabbing; }
-  .get a.primary { background: var(--redline); color: var(--redline-ink); }
-  .get .name { font: 700 20px/1.2 var(--ui); font-stretch: 110%; }
-  .get .how { font-size: 14px; grid-column: 1; opacity: 0.9; }
-  .get .size { grid-row: 1 / span 2; grid-column: 2; font-size: 14px; opacity: 0.9; text-align: right; }
-  .yours { font-size: 12px; font-weight: 600; padding: 1px 7px; border-radius: 99px; margin-left: 8px;
-           border: 1px solid currentColor; vertical-align: 3px; }
-  .phone { display: none; margin: 0 0 14px; padding: 14px 16px; border: 1.5px dashed var(--graphite); }
+  .get a.primary { background: var(--button); color: var(--on-button); border-color: var(--button); font-size: 17px; padding: 13px 22px; }
+  .get a.primary:hover { background: color-mix(in srgb, var(--button) 85%, var(--page)); }
+  .get .size { font-weight: 400; font-size: 14px; opacity: 0.65; }
+  @media (max-width: 600px) { .get a { flex: 1 1 100%; justify-content: space-between; } }
+
+  .how { margin: 16px 0 0; font-size: 15px; color: var(--muted); }
+  .how b { color: var(--ink); font-weight: 550; }
+  kbd { font: 550 13px var(--font); padding: 1px 6px; border: 1px solid var(--line); border-bottom-width: 2px; border-radius: 4px; color: var(--ink); }
+  #feedback { min-height: 1.6em; margin: 6px 0 0; font-size: 15px; font-weight: 550; }
+
+  .phone { display: none; margin: 32px 0 0; padding: 16px 18px; border-radius: 10px; background: var(--canvas); }
   .phone.show { display: block; }
-  .on-phone .get a.primary { background: none; color: var(--redline); }  /* the share button leads on phones */
-  .phone p { margin: 0 0 10px; font-size: 16px; }
-  .phone button { font: 700 17px var(--ui); padding: 12px 18px; border-radius: 6px; cursor: pointer;
-                  border: 2px solid var(--redline); background: var(--redline); color: var(--redline-ink); }
-  #feedback { min-height: 1.5em; margin: 10px 0 0; font-size: 15px; color: var(--redline); }
-  .fine { font-size: 14px; color: var(--lead); margin: 8px 0 0; }
+  .phone p { margin: 0 0 12px; font-size: 15px; }
+  .phone button { font: 600 16px var(--font); padding: 12px 18px; border-radius: 8px; cursor: pointer;
+                  border: 0; background: var(--button); color: var(--on-button); }
+  .on-phone .get { margin-top: 12px; }
+  .on-phone .get a.primary { background: none; color: var(--ink); border-color: var(--line); }
 
-  h3 { font: 700 19px/1.25 var(--ui); font-stretch: 108%; margin: 0 0 4px; }
-  .what { display: grid; grid-template-columns: repeat(3, 1fr); gap: 26px; margin: 40px 0 0; }
-  .what p, .faq p { margin: 0; font-size: 16px; }
-  @media (max-width: 640px) { .what { grid-template-columns: 1fr; gap: 18px; } }
+  /* ---------- The board ---------- */
+  .board-head { margin: 96px 0 16px; display: flex; justify-content: space-between; align-items: baseline; gap: 12px; flex-wrap: wrap; }
+  h2 { margin: 0; font-size: 28px; line-height: 1.2; font-weight: 700; letter-spacing: -0.03em; }
+  .board-head p { margin: 0; font-size: 15px; color: var(--muted); }
 
-  .faq { margin: 40px 0 0; border-top: 1.5px solid var(--graphite); }
-  .faq div { padding: 16px 0; border-bottom: 0.75px solid var(--rule); }
-  footer { margin-top: 28px; font-size: 14px; color: var(--lead); display: flex; justify-content: space-between;
-           gap: 10px 24px; flex-wrap: wrap; }
-  footer nav { display: flex; gap: 18px; flex-wrap: wrap; }
+  .board { display: grid; grid-template-columns: repeat(6, 1fr); grid-auto-flow: row dense; gap: 12px;
+           padding: 12px; border-radius: 14px;
+           background-color: var(--canvas);
+           background-image: radial-gradient(var(--dot) 1px, transparent 1.2px);
+           background-size: 18px 18px; }
+  .panel { background: var(--panel); border: 1px solid var(--line); border-radius: 6px; padding: 20px 22px 22px; min-width: 0; }
+  .panel h3 { margin: 0 0 6px; font-size: 16px; line-height: 1.35; font-weight: 650; letter-spacing: -0.01em; }
+  .panel p { margin: 0; font-size: 15px; color: var(--muted); }
+  .panel p + p, .panel p + ul, .panel ul + p { margin-top: 12px; }
+  .step { display: inline-block; min-width: 1.4em; margin-right: 4px; color: var(--muted); font-weight: 500; }
+
+  .p-demo { grid-column: span 4; grid-row: span 2; padding: 0; overflow: hidden; display: flex; align-items: center; background: #000; }
+  .p-demo img { display: block; width: 100%; height: auto; }
+  .p-type  { grid-column: span 2; grid-row: span 2; }
+  .p-name  { grid-column: span 2; }
+  .p-search{ grid-column: span 2; }
+  .p-send  { grid-column: span 2; }
+
+  .q { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+  .q li { display: flex; gap: 10px; align-items: baseline; font-size: 15px; }
+  .q .mark { flex: none; width: 1em; font-weight: 700; text-align: center; }
+  .q .yes .mark { color: var(--yes); }
+  .q .no  .mark { color: var(--no); }
+  .q .no span:last-child { color: var(--muted); text-decoration: line-through; text-decoration-color: var(--no); }
+  .typed { display: inline; padding: 2px 7px; border-radius: 4px; background: var(--canvas); box-decoration-break: clone; -webkit-box-decoration-break: clone; }
+
+  .names { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 6px; }
+  .names li { font-size: 14px; padding: 3px 10px; border-radius: 99px; border: 1px solid var(--line); color: var(--muted); }
+  .names li:first-child { color: var(--ink); border-color: var(--ink); font-weight: 550; }
+
+  @media (max-width: 860px) {
+    .board { grid-template-columns: 1fr 1fr; }
+    .p-demo { grid-column: span 2; grid-row: auto; }
+    .p-type { grid-column: span 2; grid-row: auto; }
+    .p-name, .p-search, .p-send { grid-column: span 1; }
+    .p-send { grid-column: span 2; }
+  }
+  @media (max-width: 560px) {
+    .board { grid-template-columns: 1fr; padding: 8px; gap: 8px; }
+    .board > * { grid-column: auto !important; }
+  }
+
+  /* ---------- Notes ---------- */
+  .notes-head { margin: 96px 0 0; }
+  .notes { display: grid; grid-template-columns: 1fr 1fr; gap: 32px 56px; margin: 24px 0 0; }
+  .notes h3 { margin: 0 0 4px; font-size: 16px; font-weight: 650; letter-spacing: -0.01em; }
+  .notes p { margin: 0; font-size: 15px; color: var(--muted); }
+  .notes code { font-size: 13.5px; padding: 1px 5px; border-radius: 4px; background: var(--canvas); color: var(--ink); }
+  @media (max-width: 680px) { .notes { grid-template-columns: 1fr; gap: 24px; } }
+
+  footer { margin: 96px 0 0; padding: 22px 0 40px; border-top: 1px solid var(--line);
+           display: flex; justify-content: space-between; flex-wrap: wrap; gap: 8px 24px; font-size: 14px; color: var(--muted); }
 </style>
 </head>
 <body>
-<main class="sheet">
-  <h1>Assemblage</h1>
-  <p class="lede">Describe what you're modelling. Blender tells you what it's called and builds you a reference board.</p>
+<div class="wrap">
+  <nav class="bar" aria-label="Project">
+    <a href="https://github.com/MaximumMax01/assemblage-blender">Source code</a>
+    <a href="https://github.com/MaximumMax01/assemblage-blender/issues">Report a problem</a>
+  </nav>
 
-  <figure class="drawing" aria-label="A drawing of an office wall. A note asks what the strip at the bottom is called; a red callout answers: rubber cove base. Another asks about the ceiling tiles; the answer: suspended ceiling.">
-    <svg id="elevation" viewBox="0 0 760 330" role="img">
-      <!-- ceiling grid -->
-      <line class="ln" x1="20" y1="40" x2="740" y2="40"/>
-      <line class="ln" x1="20" y1="80" x2="740" y2="80"/>
-      <g class="thin">
-        <line x1="80" y1="40" x2="80" y2="80"/><line x1="160" y1="40" x2="160" y2="80"/>
-        <line x1="240" y1="40" x2="240" y2="80"/><line x1="320" y1="40" x2="320" y2="80"/>
-        <line x1="400" y1="40" x2="400" y2="80"/><line x1="480" y1="40" x2="480" y2="80"/>
-        <line x1="560" y1="40" x2="560" y2="80"/><line x1="640" y1="40" x2="640" y2="80"/>
-        <line x1="720" y1="40" x2="720" y2="80"/>
-      </g>
-      <rect class="ln" x="402" y="44" width="76" height="32"/>
-      <!-- wall with a door and a switch -->
-      <rect class="ln" x="560" y="120" width="96" height="152"/>
-      <line class="thin" x1="566" y1="126" x2="566" y2="272"/>
-      <circle class="thin" cx="645" cy="200" r="4"/>
-      <rect class="thin" x="520" y="168" width="12" height="20"/>
-      <!-- cove base and floor -->
-      <path class="ln" d="M20 258 H560 M656 258 H740"/>
-      <path class="ln" d="M20 272 H560 Q564 272 564 268 M656 272 H740"/>
-      <line class="ln" x1="20" y1="276" x2="740" y2="276"/>
-      <g class="hatch">
-        <line x1="30" y1="292" x2="46" y2="276"/><line x1="70" y1="292" x2="86" y2="276"/>
-        <line x1="110" y1="292" x2="126" y2="276"/><line x1="150" y1="292" x2="166" y2="276"/>
-        <line x1="190" y1="292" x2="206" y2="276"/><line x1="230" y1="292" x2="246" y2="276"/>
-        <line x1="270" y1="292" x2="286" y2="276"/><line x1="310" y1="292" x2="326" y2="276"/>
-        <line x1="350" y1="292" x2="366" y2="276"/><line x1="390" y1="292" x2="406" y2="276"/>
-        <line x1="430" y1="292" x2="446" y2="276"/><line x1="470" y1="292" x2="486" y2="276"/>
-        <line x1="510" y1="292" x2="526" y2="276"/><line x1="550" y1="292" x2="566" y2="276"/>
-        <line x1="590" y1="292" x2="606" y2="276"/><line x1="630" y1="292" x2="646" y2="276"/>
-        <line x1="670" y1="292" x2="686" y2="276"/><line x1="710" y1="292" x2="726" y2="276"/>
-      </g>
-      <!-- dimension on the cove base -->
-      <g class="thin"><line x1="728" y1="258" x2="728" y2="276"/><line x1="723" y1="258" x2="733" y2="258"/><line x1="723" y1="276" x2="733" y2="276"/></g>
-      <text class="dim" x="694" y="252">4 in</text>
+  <header class="text">
+    <h1>Assemblage</h1>
+    <p class="sub">Reference boards, without leaving Blender.</p>
 
-      <!-- callout 1: the strip at the bottom -->
-      <g class="callout-1">
-        <text class="q" x="40" y="176">that strip at the bottom?</text>
-        <text class="a" x="40" y="206">rubber cove base</text>
-        <path class="lead" d="M200 214 L262 252 L268 262"/>
-        <circle class="dot" cx="268" cy="264" r="3.5"/>
-      </g>
-      <!-- callout 2: the ceiling -->
-      <g class="callout-2">
-        <text class="q" x="214" y="124">the white tiles up there?</text>
-        <text class="a" x="214" y="154">suspended ceiling</text>
-        <path class="lead" d="M206 128 L178 100 L172 82"/>
-        <circle class="dot" cx="172" cy="78" r="3.5"/>
-      </g>
-    </svg>
-  </figure>
-  <p class="caption">You know what it looks like, not what it's called. Assemblage finds the name, then the pictures.</p>
-
-  <img id="demo" src="demo.gif" alt="Typing a description into Assemblage, picking a suggested name, and a reference board appearing in Blender" onerror="this.remove()">
-
-  <section class="title-block" aria-labelledby="install">
-    <div class="tb-head">
-      <h2 id="install">Install in one drag</h2>
-      <p id="version">Free, for Blender 5.2 or newer</p>
+    <div class="phone" id="phone">
+      <p>Blender runs on your computer, so send yourself this page and install it there.</p>
+      <button type="button" id="share">Send this page to my computer</button>
     </div>
-    <ol class="steps">
-      <li><b>1</b><span>Open Blender 5.2 or newer.</span></li>
-      <li><b>2</b><span>Drag your button below onto the Blender window.</span></li>
-      <li><b>3</b><span>Click Install. If Blender asks to allow online access, allow it: Assemblage needs it to search.</span></li>
-      <li><b>4</b><span>In the 3D viewport, press N and open the Assemblage tab.</span></li>
-    </ol>
-    <div class="tb-get">
-      <div class="phone" id="phone">
-        <p>On a phone? Blender runs on your computer, so send yourself this page and install it there.</p>
-        <button type="button" id="share">Send this page to my computer</button>
+
+    <div class="get" id="buttons">
+      <a class="primary" href="https://github.com/MaximumMax01/assemblage-blender/releases/latest">Download from GitHub</a>
+    </div>
+    <p class="how"><b>Drag the button onto your Blender window</b> and click Install. Then press <kbd>N</kbd> in the 3D viewport and open the Assemblage tab.</p>
+    <p class="how" id="version">Free, for Blender 5.2 or newer.</p>
+    <p id="feedback" role="status"></p>
+  </header>
+
+  <section aria-labelledby="using">
+    <div class="board-head">
+      <h2 id="using">Using it</h2>
+      <p>Three steps, all inside Blender.</p>
+    </div>
+
+    <div class="board">
+      <div class="panel p-demo" id="demo-panel">
+        <img src="demo.gif" alt="Typing a description into Assemblage, picking a suggested name, and a reference board appearing in Blender"
+             onerror="document.getElementById('demo-panel').remove()">
       </div>
-      <div class="get" id="buttons">
-        <a class="primary" href="https://github.com/MaximumMax01/assemblage-blender/releases/latest">
-          <span class="name">Download Assemblage</span><span class="how">Choose the zip for your system</span>
-        </a>
+
+      <div class="panel p-type">
+        <h3><span class="step">1</span>Type what you're modelling</h3>
+        <p>Be specific. The more you say, the better the references.</p>
+        <ul class="q" aria-label="Examples">
+          <li class="no"><span class="mark" aria-label="Weak">✗</span><span>chair</span></li>
+          <li class="yes"><span class="mark" aria-label="Good">✓</span><span>black mesh office chair</span></li>
+        </ul>
+        <p>Want it shown somewhere real? Say where.</p>
+        <ul class="q">
+          <li class="yes"><span class="mark" aria-label="Good">✓</span><span>drinking fountain on a hallway wall</span></li>
+        </ul>
+        <p>That brings back installed fountains instead of catalog shots on white.</p>
       </div>
-      <p id="feedback" role="status"></p>
-      <p class="fine">Prefer a file? Click a button instead: the zip downloads, then drag the zip into Blender.
-        On a Mac with Safari, if the download unzips itself, right-click the button and choose Download Linked File.</p>
+
+      <div class="panel p-name">
+        <h3>Don't know what it's called?</h3>
+        <p>Describe it, like <span class="typed">rubber strip where office walls meet the floor</span>, and click Suggest Names. Click the one you mean.</p>
+        <ul class="names" aria-label="Example suggestions">
+          <li>Rubber cove base</li><li>Vinyl wall base</li><li>Skirting board</li>
+        </ul>
+      </div>
+
+      <div class="panel p-search">
+        <h3><span class="step">2</span>Search, then check</h3>
+        <p>Images that are too small, blurry or duplicated are dropped, the rest are ranked, and the best few come ticked.</p>
+        <p>Untick what you don't want. Tick anything it missed.</p>
+      </div>
+
+      <div class="panel p-send">
+        <h3><span class="step">3</span>Send the board</h3>
+        <p>Send to Blender lays the picks out in a side viewport, well away from your model. Send to PureRef saves a .pur file and opens it.</p>
+      </div>
     </div>
   </section>
 
-  <section class="what" aria-label="What it does">
-    <div><h3>Suggest names</h3><p>Describe it in plain words and get the names used on product pages, with a hint for each.</p></div>
-    <div><h3>Picks the best</h3><p>Searches the web, drops tiny and blurry images, and ticks the most useful ones.</p></div>
-    <div><h3>Boards in one click</h3><p>Lay the picks out next to your model in Blender, or send them to PureRef.</p></div>
-  </section>
-
-  <section class="faq" aria-label="Questions">
-    <div><h3>Does it generate images?</h3><p>No. It finds real photos and ranks them with an AI model that runs on your computer. The model is an optional one-time 608 MB download; searching works without it.</p></div>
-    <div><h3>What does it cost?</h3><p>Nothing. It's free and open source under the GPL.</p></div>
-    <div><h3>What leaves my computer?</h3><p>Your search goes to DuckDuckGo and Wikimedia Commons. If you use Suggest Names, your description is sent to Assemblage's server to come up with names, and it isn't stored.</p></div>
-    <div><h3>How do I update it?</h3><p>Come back here and drag the button in again. Blender replaces the old version.</p></div>
+  <section class="text notes-head" aria-labelledby="notes" style="max-width: none">
+    <h2 id="notes">Good to know</h2>
+    <div class="notes">
+      <div><h3>It finds photos, it doesn't make them</h3><p>Every result is a real image from the web. The model that ranks them runs on your computer, and is an optional one-time 608 MB download checked against a fingerprint. Searching works without it.</p></div>
+      <div><h3>How it ranks</h3><p>Each image is scored with CLIP on two questions: is it the thing you asked for, and is it a useful reference rather than a wide scene, collage or watermarked stock photo? The wording and weights were tuned against hand-labelled searches. See <code>scoring.py</code> in the <a href="https://github.com/MaximumMax01/assemblage-blender">source</a>.</p></div>
+      <div><h3>What leaves your computer</h3><p>Your search goes to DuckDuckGo and Wikimedia Commons, and images come from the sites that host them. Suggest Names sends your description to Assemblage's server, which runs an open model and doesn't store it. Nothing else is sent.</p></div>
+      <div><h3>Whose images these are</h3><p>Images belong to their owners. Use them as references, not in published work.</p></div>
+      <div><h3>Requirements</h3><p>Blender 5.2 or newer, on 64-bit Windows or macOS 14+ on Apple Silicon. Allow online access when Blender asks, or turn it on in Preferences &gt; System &gt; Network.</p></div>
+      <div><h3>Downloading instead of dragging</h3><p>Clicking a button downloads the zip; drag the zip into Blender. In Safari, if the zip unzips itself, right-click the button and choose Download Linked File.</p></div>
+      <div><h3>Updating</h3><p>Come back and drag the button in again. Blender replaces the old version.</p></div>
+      <div><h3>Cost</h3><p>Free and open source, under GPL-3.0-or-later.</p></div>
+    </div>
   </section>
 
   <footer>
     <span>Made by Max, a Blender artist who got tired of hunting for references.</span>
-    <nav>
-      <a href="https://github.com/MaximumMax01/assemblage-blender">Source code</a>
-      <a href="https://github.com/MaximumMax01/assemblage-blender/issues">Report a problem</a>
-    </nav>
+    <a href="https://github.com/MaximumMax01/assemblage-blender">github.com/MaximumMax01/assemblage-blender</a>
   </footer>
-</main>
+</div>
 
 <script>
-  // Windows first (most Blender users), then the rest. The visitor's own
-  // system gets a "This computer" tag so Mac users don't grab the wrong zip.
-  // The link is the plain zip address on GitHub. Dragged into Blender, that
-  // installs in one step; clicked, it downloads the zip.
+  // Builds one download button per zip in index.json. The visitor's own system
+  // gets the main button. Dragging a zip link into Blender installs it;
+  // clicking downloads it.
   const NAMES = { "windows-x64": "Windows", "macos-arm64": "Mac (Apple Silicon)", "macos-x64": "Mac (Intel)", "linux-x64": "Linux" };
   const ORDER = ["windows-x64", "macos-arm64", "macos-x64", "linux-x64"];
 
   function thisComputer() {
     const p = (navigator.userAgentData && navigator.userAgentData.platform) || navigator.platform || navigator.userAgent;
-    if (/mac/i.test(p)) return "macos-arm64";
+    if (/mac/i.test(p)) return "macos-arm64";  // browsers can't tell Apple Silicon from Intel
     if (/win/i.test(p)) return "windows-x64";
     return null;
   }
 
-  // On a phone the whole wall is too small to read, so show its left part bigger.
-  const narrow = matchMedia("(max-width: 560px)");
-  function frameDrawing() {
-    document.getElementById("elevation").setAttribute("viewBox", narrow.matches ? "16 30 430 270" : "0 0 760 330");
-  }
-  frameDrawing();
-  narrow.addEventListener("change", frameDrawing);
-
   function say(text) { document.getElementById("feedback").textContent = text; }
 
-  // Phones and tablets can't run Blender: offer to send the page instead of
-  // letting someone download a zip they can't use.
+  function megabytes(bytes) {
+    const mb = bytes / 1048576;
+    return (mb < 10 ? mb.toFixed(1) : Math.round(mb)) + " MB";
+  }
+
+  // Phones and tablets can't run Blender: offer to send the page instead.
   if (matchMedia("(pointer: coarse)").matches && !matchMedia("(pointer: fine)").matches) {
     document.getElementById("phone").classList.add("show");
     document.body.classList.add("on-phone");
@@ -254,7 +250,7 @@
         if (navigator.share) { await navigator.share(page); return; }
         await navigator.clipboard.writeText(page.url);
         say("Link copied. Paste it into a message or email to yourself.");
-      } catch (e) { /* the share sheet was closed: nothing to do */ }
+      } catch (e) { /* share sheet closed */ }
     });
   }
 
@@ -262,34 +258,38 @@
     .then(response => response.json())
     .then(index => {
       const entries = (index.data || []).filter(e => e.id === "assemblage");
-      if (!entries.length) return;  // keep the fallback link
+      if (!entries.length) return;  // keep the GitHub link
       const rank = e => { const i = ORDER.indexOf((e.platforms || [])[0]); return i < 0 ? 99 : i; };
       entries.sort((a, b) => rank(a) - rank(b));
       const mine = thisComputer();
+      const lead = Math.max(0, entries.findIndex(e => (e.platforms || [])[0] === mine));
+      entries.unshift(entries.splice(lead, 1)[0]);
 
       const box = document.getElementById("buttons");
       box.innerHTML = "";
       entries.forEach((entry, i) => {
         const platform = (entry.platforms || [])[0];
+        const name = NAMES[platform] || "all systems";
         const params = new URLSearchParams({ blender_version_min: entry.blender_version_min });
         if (platform) params.set("platforms", platform);
         const a = document.createElement("a");
-        if (i === 0) a.className = "primary";
         a.href = entry.archive_url + "?" + params.toString();
-        a.innerHTML =
-          `<span class="name">Assemblage for ${NAMES[platform] || "all systems"}` +
-          (platform === mine ? `<span class="yours">This computer</span>` : "") + `</span>` +
-          `<span class="how">Drag into Blender</span>` +
-          `<span class="size">${Math.round(entry.archive_size / 1048576)} MB</span>`;
+        if (i === 0) a.className = "primary";
+        const label = document.createElement("span");
+        label.textContent = i === 0 ? `Download for ${name}` : name;
+        const size = document.createElement("span");
+        size.className = "size";
+        size.textContent = megabytes(entry.archive_size);
+        a.append(label, size);
         a.addEventListener("dragstart", () => say("Drop it anywhere on the Blender window."));
         a.addEventListener("dragend", () => say("Blender should now ask you to install. Click Install."));
         a.addEventListener("click", () => say("Downloading the zip. When it's done, drag the zip into Blender."));
         box.appendChild(a);
       });
       document.getElementById("version").textContent =
-        `Version ${entries[0].version}, free, for Blender ${entries[0].blender_version_min.replace(/\.0$/, "")} or newer`;
+        `Version ${entries[0].version}. Free, for Blender ${entries[0].blender_version_min.replace(/\.0$/, "")} or newer.`;
     })
-    .catch(() => {});  // listing unreachable: the plain release link still works
+    .catch(() => {});  // listing unreachable: the GitHub link still works
 </script>
 </body>
 </html>
