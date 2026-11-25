@@ -103,36 +103,42 @@
   .bar a:hover { color: var(--ink); }
 
   header { padding: 72px 0 0; }
+  header.text { max-width: 760px; }
+  header .how, header .phone, header .thanks { max-width: 640px; }
   @media (max-width: 600px) { header { padding-top: 40px; } }
   h1 { margin: 0; font-size: clamp(48px, 8vw, 76px); line-height: 1; font-weight: 750; letter-spacing: -0.045em; }
   .sub { margin: 14px 0 0; font-size: clamp(20px, 2.6vw, 24px); line-height: 1.35; letter-spacing: -0.015em; color: var(--muted); }
 
   .get { display: flex; flex-wrap: wrap; align-items: stretch; gap: 10px; margin: 48px 0 0; }
-  .slot { position: relative; display: inline-flex; border-radius: 8px; }
-  .slot::before { content: ""; position: absolute; inset: 0; border: 1.5px dashed var(--muted); border-radius: 8px;
-                  opacity: 0; transition: opacity 0.2s; pointer-events: none; }
-  .slot.near::before, .slot.over::before { opacity: 0.6; }
-  .slot > a { flex: 1; }
-  .grip { flex: none; width: 8px; height: 14px; align-self: center; margin-left: -4px; fill: currentColor; opacity: 0.5; transition: opacity 0.2s; }
-  .slot.near .grip, .slot.over .grip { opacity: 0.95; }
-  .slot:focus-within > a { transform: translateY(-3px); box-shadow: 0 12px 26px -10px var(--shadow); }
-  .tip { position: absolute; left: 10px; bottom: calc(100% + 12px); z-index: 2; display: flex; align-items: center; gap: 6px;
-         padding: 5px 11px 5px 8px; border-radius: 99px; background: var(--pink); color: #fff;
-         font-size: 13px; font-weight: 600; white-space: nowrap; pointer-events: none;
-         opacity: 0; transform: translateY(5px) scale(.94); transform-origin: 20px 100%;
-         transition: opacity 0.18s, transform 0.25s cubic-bezier(.3,1.4,.5,1); }
-  .tip::after { content: ""; position: absolute; left: 18px; top: 100%; border: 6px solid transparent; border-top-color: var(--pink); }
-  .tip svg { width: 12px; height: 14px; fill: #fff; }
-  .slot.near .tip, .slot.over .tip, .slot:focus-within .tip { opacity: 1; transform: none; }
   .get a { display: inline-flex; align-items: baseline; gap: 12px; padding: 13px 20px; border-radius: 8px;
            border: 1px solid var(--line); text-decoration: none; font-weight: 550; font-size: 16px;
-           cursor: grab; transition: background-color 0.12s, border-color 0.12s, transform 0.3s cubic-bezier(.3,1.3,.5,1), box-shadow 0.3s; }
+           cursor: pointer; transition: background-color 0.12s, border-color 0.12s; }
   .get a:hover { border-color: var(--muted); }
-  .get a:active { cursor: grabbing; }
   .get a.primary { background: var(--button); color: var(--on-button); border-color: var(--button); font-size: 17px; padding: 13px 22px; }
-  .get a.primary:hover { background: color-mix(in srgb, var(--button) 85%, var(--page)); }
   .get .size { font-weight: 400; font-size: 14px; opacity: 0.65; }
-  @media (max-width: 600px) { .get a, .slot { flex: 1 1 100%; } .get a { justify-content: space-between; } .grip { display: none; } }
+
+  /* Hover: the button lifts, the arrow drops into the tray, a light sweeps
+     across, and the size swaps for "drag or click". */
+  .get a { position: relative; overflow: hidden; align-items: center; }
+  .get .ico { flex: none; width: 17px; height: 17px; margin-left: -3px; fill: none; stroke: currentColor;
+              stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; overflow: visible; }
+  .get .meta { display: grid; }
+  .get .meta > span { grid-area: 1 / 1; text-align: right; transition: opacity 0.2s, transform 0.25s; }
+  .get .meta .alt { opacity: 0; transform: translateY(6px); white-space: nowrap; }
+  .get a:hover .meta .size, .get a:focus-visible .meta .size { opacity: 0; transform: translateY(-6px); }
+  .get a:hover .meta .alt, .get a:focus-visible .meta .alt { opacity: 0.8; transform: none; }
+  .get a.primary::after { content: ""; position: absolute; inset: 0; pointer-events: none;
+                          background: linear-gradient(105deg, transparent 35%, color-mix(in srgb, var(--on-button) 22%, transparent) 50%, transparent 65%);
+                          transform: translateX(-110%); }
+  @media (prefers-reduced-motion: no-preference) {
+    .get a { transition: background-color 0.12s, border-color 0.12s, transform 0.25s cubic-bezier(.3,1.4,.5,1), box-shadow 0.25s; }
+    .get a:hover { transform: translateY(-2px); box-shadow: 0 10px 22px -12px var(--shadow); }
+    .get a:active { transform: translateY(0); box-shadow: none; transition-duration: 0.08s; }
+    .get a:hover .ico .arrow { animation: drop 0.55s cubic-bezier(.3,1.5,.5,1); }
+    .get a.primary:hover::after { transform: translateX(110%); transition: transform 0.7s ease; }
+    @keyframes drop { 0% { transform: translateY(0); } 35% { transform: translateY(-4px); opacity: 0.3; } 36% { transform: translateY(-7px); opacity: 0; } 60% { opacity: 1; } 100% { transform: translateY(0); } }
+  }
+  @media (max-width: 600px) { .get a { flex: 1 1 100%; } .get .meta { margin-left: auto; } .get .meta .alt { display: none; } }
 
   .how { margin: 16px 0 0; font-size: 15px; color: var(--muted); }
   .how b { color: var(--ink); font-weight: 550; }
@@ -141,6 +147,9 @@
   .thanks[hidden] { display: none; }
   .thanks h2 { font-size: 20px; letter-spacing: -0.02em; margin: 0 0 4px; padding-right: 28px; }
   .thanks p { margin: 0; font-size: 15px; color: var(--muted); }
+  .thanks #thanks-next { color: var(--ink); }
+  .thanks .hint { margin-top: 6px; }
+  .how.first { margin-top: 8px; }
   .thanks .actions { display: flex; flex-wrap: wrap; gap: 8px; margin: 16px 0 0; }
   .thanks .actions > * { font: 550 15px var(--font); padding: 9px 15px; border-radius: 8px; cursor: pointer; text-decoration: none;
                          border: 1px solid var(--line); background: var(--panel); color: var(--ink); }
@@ -249,9 +258,10 @@
     </div>
 
     <div class="get" id="buttons">
-      <a class="primary" href="https://github.com/MaximumMax01/assemblage-blender/releases/latest">Download from GitHub</a>
+      <a class="primary" href="https://github.com/MaximumMax01/assemblage-blender/releases/latest" draggable="false">Download from GitHub</a>
     </div>
     <p class="how"><svg class="doodle up" viewBox="0 0 24 26" aria-hidden="true" style="--d:.9s"><path pathLength="1" d="M5 24 C 3 15, 7 8, 17 4"/><path pathLength="1" d="M10 2.5 L17 4 L14.5 10.5"/></svg><b>Drag the button onto your Blender window</b> and click Install. Then press <span class="ring"><kbd>N</kbd><svg class="doodle" viewBox="0 0 60 34" preserveAspectRatio="none" aria-hidden="true" style="--d:1.4s"><path pathLength="1" d="M34 4 C 18 2, 4 8, 5 18 C 6 28, 26 32, 42 29 C 56 26, 58 12, 46 6 C 40 3, 30 3, 22 5"/></svg></span> in the 3D viewport and open the Assemblage tab.</p>
+    <p class="how first">First time? Blender asks to add Assemblage's repository. Click Add Repository, tick Check for Updates on Start, click Create, then drag the button in again. You can also click the button to download the zip and drag that into Blender instead.</p>
     <p class="how" id="version">Free, for Blender 5.2 or newer.</p>
     <p id="feedback" role="status"></p>
 
@@ -265,7 +275,8 @@
       </svg>
       <button type="button" class="close" id="thanks-close" aria-label="Close">×</button>
       <h2 id="thanks-title">Thanks for trying Assemblage!</h2>
-      <p id="thanks-next">In Blender, click Install. Then press N in the 3D viewport and open the Assemblage tab.</p>
+      <p id="thanks-next">Now drag the zip from your browser's downloads into Blender, then click Install.</p>
+      <p class="hint">In Chrome and Edge, you can drag it straight from the downloads button near the top right.</p>
       <div class="actions">
         <button type="button" class="main" id="share-friend">Share with a friend</button>
         <a href="https://github.com/MaximumMax01/assemblage-blender">Star it on GitHub</a>
@@ -329,8 +340,9 @@
       <div><h3>What leaves your computer</h3><p>Your search goes to DuckDuckGo and Wikimedia Commons, and images come from the sites that host them. Suggest Names sends your description to Assemblage's server, which runs an open model and doesn't store it. Nothing else is sent.</p></div>
       <div><h3>Whose images these are</h3><p>Images belong to their owners. Use them as references, not in published work.</p></div>
       <div><h3>Requirements</h3><p>Blender 5.2 or newer, on 64-bit Windows or macOS 14+ on Apple Silicon. Allow online access when Blender asks, or turn it on in Preferences &gt; System &gt; Network.</p></div>
-      <div><h3>Downloading instead of dragging</h3><p>Clicking a button downloads the zip; drag the zip into Blender. In Safari, if the zip unzips itself, right-click the button and choose Download Linked File.</p></div>
-      <div><h3>Updating</h3><p>Come back and drag the button in again. Blender replaces the old version.</p></div>
+      <div><h3>If Safari unzips the download</h3><p>Blender needs the zip itself. In Safari, if the download unzips itself, right-click the button and choose Download Linked File.</p></div>
+      <div><h3>Why Blender asks about a repository</h3><p>Blender only installs dragged links from repositories you've added. Assemblage's repository is a list of its releases, hosted on this site. Adding it once lets you install by dragging and lets Blender check for new versions.</p></div>
+      <div><h3>Updating</h3><p>If you added the repository with Check for Updates on Start ticked, Blender tells you when there's a new version. Otherwise, come back and drag the newest version in.</p></div>
       <div><h3>Cost</h3><p>Free and open source, under GPL-3.0-or-later.</p></div>
     </div>
   </section>
@@ -342,6 +354,29 @@
 </div>
 
 <script>
+  // Light/dark toggle. With no saved choice, the page follows the system.
+  const ICONS = {
+    moon: '<svg viewBox="0 0 24 24"><path d="M20 14.5A8 8 0 0 1 9.5 4a8 8 0 1 0 10.5 10.5Z"/></svg>',
+    sun: '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2.5v2M12 19.5v2M2.5 12h2M19.5 12h2M5.3 5.3l1.4 1.4M17.3 17.3l1.4 1.4M5.3 18.7l1.4-1.4M17.3 6.7l1.4-1.4"/></svg>'
+  };
+  const themeButton = document.getElementById("theme");
+  const systemDark = matchMedia("(prefers-color-scheme: dark)");
+  const currentTheme = () => document.documentElement.dataset.theme || (systemDark.matches ? "dark" : "light");
+  function showTheme() {
+    const dark = currentTheme() === "dark";
+    themeButton.innerHTML = dark ? ICONS.sun : ICONS.moon;
+    themeButton.setAttribute("aria-label", dark ? "Switch to light mode" : "Switch to dark mode");
+  }
+  themeButton.addEventListener("click", () => {
+    const next = currentTheme() === "dark" ? "light" : "dark";
+    document.documentElement.dataset.theme = next;
+    try { localStorage.setItem("theme", next); } catch (e) {}
+    showTheme();
+    themeButton.classList.remove("spin"); void themeButton.offsetWidth; themeButton.classList.add("spin");
+  });
+  systemDark.addEventListener("change", showTheme);
+  showTheme();
+
   // Draw each hand-drawn mark the first time it scrolls into view.
   document.documentElement.classList.add("js");
   const marks = document.querySelectorAll(".doodle");
@@ -355,8 +390,19 @@
   }
 
   // Builds one download button per zip in index.json. The visitor's own system
-  // gets the main button. Dragging a zip link into Blender installs it;
-  // clicking downloads it.
+  // gets the main button. Dragging a button into Blender installs it. The link
+  // names this site's index.json as its repository, so the first time Blender
+  // can offer to add that repository with the URL filled in. Clicking downloads
+  // the zip instead.
+  // Works out this site's index.json address. In a preview with no real web
+  // address (such as about:srcdoc) there isn't one, so links go without it.
+  const REPOSITORY = (() => {
+    try {
+      const url = new URL("index.json", location.href);
+      return /^(https?|file):$/.test(url.protocol) ? url.href : null;
+    } catch (e) { return null; }
+  })();
+  const DOWNLOAD_ICON = '<svg class="ico" viewBox="0 0 20 20" aria-hidden="true"><path class="arrow" d="M10 3v9m-3.5-3.5L10 12l3.5-3.5"/><path d="M3.5 13v2.5a1.5 1.5 0 0 0 1.5 1.5h10a1.5 1.5 0 0 0 1.5-1.5V13"/></svg>';
   const NAMES = { "windows-x64": "Windows", "macos-arm64": "Mac (Apple Silicon)", "macos-x64": "Mac (Intel)", "linux-x64": "Linux" };
   const ORDER = ["windows-x64", "macos-arm64", "macos-x64", "linux-x64"];
 
@@ -395,9 +441,16 @@
 
   // Thank-you card, shown after a drag out of the page or a click to download.
   const thanks = document.getElementById("thanks");
-  function showThanks(next) {
+  const NEXT = {
+    drag: ["Blender should now ask you to install it. Click Install, then press N in the 3D viewport and open the Assemblage tab.",
+           "First time? Click Add Repository, tick Check for Updates on Start, click Create, then drag the button in again."],
+    click: ["Now drag the zip from your browser's downloads into Blender, then click Install.",
+            "In Chrome and Edge, you can drag it straight from the downloads button near the top right."]
+  };
+  function showThanks(how) {
     say("");
-    document.getElementById("thanks-next").textContent = next;
+    document.getElementById("thanks-next").textContent = NEXT[how][0];
+    document.querySelector("#thanks .hint").textContent = NEXT[how][1];
     document.getElementById("share-note").textContent = "";
     thanks.hidden = false;
     thanks.classList.remove("pop"); void thanks.offsetWidth; thanks.classList.add("pop");
@@ -407,83 +460,6 @@
     sharePage({ title: "Assemblage", text: "A free Blender extension that builds a reference board for whatever you're modelling." },
               "Link copied. Send it to someone who models.",
               t => { document.getElementById("share-note").textContent = t; }));
-
-  // Drag cue: when the pointer comes near the main button, it lifts and tugs
-  // to show it can be dragged. Once the pointer is on a button it glides into
-  // a lifted pose and holds still, so it's easy to grab. Every change starts
-  // from wherever the button is at that moment, so nothing snaps.
-  const calm = matchMedia("(prefers-reduced-motion: reduce)");
-  let dragging = false, px = 0, py = 0, queued = false;
-  const shadow = (y, blur) => `0 ${y}px ${blur}px -10px ${getComputedStyle(document.documentElement).getPropertyValue("--shadow").trim()}`;
-  const POSE = {
-    rest: () => ({ transform: "translate(0px, 0px) rotate(0deg)", boxShadow: "0 0 0 -10px transparent" }),
-    lift: () => ({ transform: "translate(0px, -3px) rotate(0deg)", boxShadow: shadow(12, 26) }),
-    out:  () => ({ transform: "translate(16px, -6px) rotate(1.6deg)", boxShadow: shadow(16, 30) })
-  };
-  function setState(slot, state) {
-    if (slot.dataset.state === (state || "rest")) return;
-    slot.dataset.state = state || "rest";
-    slot.classList.toggle("near", state === "near");
-    slot.classList.toggle("over", state === "over");
-    const a = slot.querySelector("a");
-    const now = getComputedStyle(a);
-    const from = { transform: now.transform === "none" ? POSE.rest().transform : now.transform, boxShadow: now.boxShadow };
-    a.getAnimations().forEach(x => x.cancel());
-    const settle = to => a.animate([from, to], { duration: 380, easing: "cubic-bezier(.3,1.25,.5,1)", fill: "forwards" });
-    if (state === "over" || (state === "near" && calm.matches)) {
-      settle(POSE.lift());
-    } else if (state === "near") {
-      // Ease back to rest, then start the slow tug loop from there.
-      a.animate([from, POSE.rest()], { duration: 220, easing: "ease-out", fill: "forwards" }).onfinish = () => {
-        if (slot.dataset.state !== "near") return;
-        a.animate([
-          { ...POSE.rest(), offset: 0 }, { ...POSE.out(), offset: 0.4 }, { ...POSE.out(), offset: 0.6 }, { ...POSE.rest(), offset: 1 }
-        ], { duration: 1700, easing: "cubic-bezier(.45,0,.3,1)", iterations: Infinity });
-      };
-    } else {
-      a.animate([from, POSE.rest()], { duration: 380, easing: "cubic-bezier(.3,1.1,.5,1)" });
-    }
-  }
-  function clearNear() { document.querySelectorAll(".slot").forEach(s => setState(s, null)); }
-  function checkNear() {
-    queued = false;
-    if (dragging) return;
-    document.querySelectorAll(".slot").forEach(s => {
-      const r = s.getBoundingClientRect();
-      const d = Math.hypot(Math.max(r.left - px, 0, px - r.right), Math.max(r.top - py, 0, py - r.bottom));
-      setState(s, d === 0 ? "over" : (d < 80 && s.classList.contains("lead")) ? "near" : null);
-    });
-  }
-  if (matchMedia("(pointer: fine)").matches) {
-    document.addEventListener("pointermove", e => {
-      px = e.clientX; py = e.clientY;
-      if (!queued) { queued = true; requestAnimationFrame(checkNear); }
-    });
-    document.addEventListener("pointerleave", clearNear);
-  }
-
-  // Light/dark toggle. With no saved choice, the page follows the system.
-  const ICONS = {
-    moon: '<svg viewBox="0 0 24 24"><path d="M20 14.5A8 8 0 0 1 9.5 4a8 8 0 1 0 10.5 10.5Z"/></svg>',
-    sun: '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2.5v2M12 19.5v2M2.5 12h2M19.5 12h2M5.3 5.3l1.4 1.4M17.3 17.3l1.4 1.4M5.3 18.7l1.4-1.4M17.3 6.7l1.4-1.4"/></svg>'
-  };
-  const themeButton = document.getElementById("theme");
-  const systemDark = matchMedia("(prefers-color-scheme: dark)");
-  const currentTheme = () => document.documentElement.dataset.theme || (systemDark.matches ? "dark" : "light");
-  function showTheme() {
-    const dark = currentTheme() === "dark";
-    themeButton.innerHTML = dark ? ICONS.sun : ICONS.moon;
-    themeButton.setAttribute("aria-label", dark ? "Switch to light mode" : "Switch to dark mode");
-  }
-  themeButton.addEventListener("click", () => {
-    const next = currentTheme() === "dark" ? "light" : "dark";
-    document.documentElement.dataset.theme = next;
-    try { localStorage.setItem("theme", next); } catch (e) {}
-    showTheme();
-    themeButton.classList.remove("spin"); void themeButton.offsetWidth; themeButton.classList.add("spin");
-  });
-  systemDark.addEventListener("change", showTheme);
-  showTheme();
 
   fetch("index.json")
     .then(response => response.json())
@@ -501,36 +477,38 @@
       entries.forEach((entry, i) => {
         const platform = (entry.platforms || [])[0];
         const name = NAMES[platform] || "all systems";
-        const params = new URLSearchParams({ blender_version_min: entry.blender_version_min });
-        if (platform) params.set("platforms", platform);
-        const slot = document.createElement("span");
-        slot.className = i === 0 ? "slot lead" : "slot";
         const a = document.createElement("a");
+        const params = new URLSearchParams({ blender_version_min: entry.blender_version_min });
+        if (REPOSITORY) params.set("repository", REPOSITORY);
+        if (platform) params.set("platforms", platform);
         a.href = entry.archive_url + "?" + params.toString();
         if (i === 0) a.className = "primary";
-        slot.insertAdjacentHTML("beforeend",
-          `<span class="tip" aria-hidden="true"><svg viewBox="0 0 12 14"><path d="M1.5 1 V11.5 L4.4 8.9 L6.6 13.3 L8.6 12.4 L6.4 8.1 H10.4 Z"/></svg>Drag me into Blender</span>`);
-        a.insertAdjacentHTML("afterbegin",
-          `<svg class="grip" viewBox="0 0 8 14" aria-hidden="true"><circle cx="2" cy="2" r="1.3"/><circle cx="6" cy="2" r="1.3"/><circle cx="2" cy="7" r="1.3"/><circle cx="6" cy="7" r="1.3"/><circle cx="2" cy="12" r="1.3"/><circle cx="6" cy="12" r="1.3"/></svg>`);
         const label = document.createElement("span");
         label.textContent = i === 0 ? `Download for ${name}` : name;
         const size = document.createElement("span");
         size.className = "size";
         size.textContent = megabytes(entry.archive_size);
-        a.append(label, size);
+        const meta = document.createElement("span");
+        meta.className = "meta";
+        meta.append(size);
+        if (i === 0) {
+          const alt = document.createElement("span");
+          alt.className = "alt";
+          alt.textContent = "drag or click";
+          meta.append(alt);
+        }
+        a.insertAdjacentHTML("afterbegin", DOWNLOAD_ICON);
+        a.append(label, meta);
         a.title = "Drag into Blender to install, or click to download the zip";
-        a.addEventListener("dragstart", () => { dragging = true; clearNear(); say("Drop it anywhere on the Blender window."); });
+        a.addEventListener("dragstart", () => say("Drop it anywhere on the Blender window."));
         a.addEventListener("dragend", e => {
-          dragging = false;
-          // Dropped back onto this page (or cancelled with Esc): no thanks yet.
+          // Dropped back onto this page, or cancelled with Esc: no thanks yet.
           const onPage = e.clientX > 0 && e.clientY > 0 && e.clientX < innerWidth && e.clientY < innerHeight;
           if (e.dataTransfer.dropEffect === "none" && onPage) { say("Drop it on the Blender window to install."); return; }
-          showThanks("Blender should now ask you to install it. Click Install, then press N in the 3D viewport and open the Assemblage tab.");
+          showThanks("drag");
         });
-        a.addEventListener("click", () =>
-          showThanks("The zip is downloading. When it's done, drag the zip into Blender and click Install. Then press N in the 3D viewport and open the Assemblage tab."));
-        slot.appendChild(a);
-        box.appendChild(slot);
+        a.addEventListener("click", () => showThanks("click"));
+        box.appendChild(a);
       });
       document.getElementById("version").textContent =
         `Version ${entries[0].version}. Free, for Blender ${entries[0].blender_version_min.replace(/\.0$/, "")} or newer.`;
