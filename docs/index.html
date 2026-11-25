@@ -143,33 +143,76 @@
   .how { margin: 16px 0 0; font-size: 15px; color: var(--muted); }
   .how b { color: var(--ink); font-weight: 550; }
   kbd { font: 550 13px var(--font); padding: 1px 6px; border: 1px solid var(--line); border-bottom-width: 2px; border-radius: 4px; color: var(--ink); }
-  .thanks { position: relative; margin: 28px 0 0; padding: 20px 22px; border: 1px solid var(--line); border-radius: 12px; background: var(--canvas); }
-  .thanks[hidden] { display: none; }
-  .thanks h2 { font-size: 20px; letter-spacing: -0.02em; margin: 0 0 4px; padding-right: 28px; }
-  .thanks p { margin: 0; font-size: 15px; color: var(--muted); }
-  .thanks #thanks-next { color: var(--ink); }
-  .thanks .hint { margin-top: 6px; }
   .how.first { margin-top: 8px; }
-  .thanks .actions { display: flex; flex-wrap: wrap; gap: 8px; margin: 16px 0 0; }
-  .thanks .actions > * { font: 550 15px var(--font); padding: 9px 15px; border-radius: 8px; cursor: pointer; text-decoration: none;
-                         border: 1px solid var(--line); background: var(--panel); color: var(--ink); }
-  .thanks .actions > *:hover { border-color: var(--muted); }
-  .thanks .actions .main { background: var(--button); color: var(--on-button); border-color: var(--button); }
-  .thanks .actions .main:hover { background: color-mix(in srgb, var(--button) 85%, var(--page)); }
-  .thanks .close { position: absolute; top: 12px; right: 12px; width: 30px; height: 30px; display: grid; place-items: center;
-                   border: 0; border-radius: 6px; background: none; color: var(--muted); font-size: 20px; line-height: 1; cursor: pointer; }
-  .thanks .close:hover { color: var(--ink); background: var(--line); }
-  #share-note { margin-top: 10px; min-height: 0; color: var(--ink); font-weight: 550; }
+
+  /* Install guide: opens after a download button is clicked. */
+  dialog.guide { width: min(740px, calc(100vw - 32px)); max-height: calc(100dvh - 32px); overflow: auto;
+                 padding: 30px 30px 24px; border: 1px solid var(--line); border-radius: 16px;
+                 background: var(--page); color: var(--ink); box-shadow: 0 30px 80px -24px rgba(0,0,0,.45); }
+  dialog.guide::backdrop { background: rgba(18,18,18,.42); }
+  .guide h2 { margin: 0; font-size: 26px; line-height: 1.15; font-weight: 700; letter-spacing: -0.03em; padding-right: 36px; }
+  .guide .lead { margin: 6px 0 0; font-size: 16px; color: var(--muted); }
+  .guide .close { position: absolute; top: 16px; right: 16px; width: 32px; height: 32px; display: grid; place-items: center;
+                  border: 0; border-radius: 8px; background: none; color: var(--muted); font-size: 22px; line-height: 1; cursor: pointer; }
+  .guide .close:hover { color: var(--ink); background: var(--canvas); }
+  .howto { list-style: none; margin: 22px 0 0; padding: 0; display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; counter-reset: g; }
+  .howto li { counter-increment: g; border: 1px solid var(--line); border-radius: 12px; overflow: hidden; background: var(--panel); }
+  .howto .pic { display: block; background-color: var(--canvas);
+                background-image: radial-gradient(var(--dot) 1px, transparent 1.2px); background-size: 14px 14px; }
+  .howto .pic svg { display: block; width: 100%; height: auto; }
+  .howto .txt { padding: 12px 14px 14px; }
+  .howto h3 { margin: 0 0 3px; font-size: 16px; font-weight: 650; letter-spacing: -0.01em; }
+  .howto h3::before { content: counter(g); color: var(--muted); font-weight: 500; margin-right: 8px; }
+  .howto p { margin: 0; font-size: 14.5px; line-height: 1.5; color: var(--muted); }
+  .guide .small { margin: 14px 0 0; font-size: 14px; color: var(--muted); }
+  .guide .actions { display: flex; flex-wrap: wrap; gap: 8px; margin: 20px 0 0; }
+  .guide .actions > * { font: 550 15px var(--font); padding: 10px 16px; border-radius: 8px; cursor: pointer; text-decoration: none;
+                        border: 1px solid var(--line); background: var(--panel); color: var(--ink); }
+  .guide .actions > *:hover { border-color: var(--muted); }
+  .guide .actions .main { background: var(--button); color: var(--on-button); border-color: var(--button); padding-left: 22px; padding-right: 22px; }
+  .guide .actions .main:hover { background: color-mix(in srgb, var(--button) 85%, var(--page)); }
+  #share-note { margin: 10px 0 0; font-size: 14px; font-weight: 550; }
   #share-note:empty { display: none; }
-  .burst { position: absolute; left: -26px; top: -26px; width: 64px; height: 64px; overflow: visible; pointer-events: none; }
-  .burst path { fill: none; stroke-width: 2.6; stroke-linecap: round; }
+
+  .ill .ln  { fill: none; stroke: var(--ink); stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
+  .ill .mu  { fill: none; stroke: var(--muted); stroke-width: 1.2; stroke-linecap: round; stroke-linejoin: round; }
+  .ill .pn  { fill: var(--panel); }
+  .ill .cv  { fill: var(--canvas); }
+  .ill .acc { fill: none; stroke-width: 2.4; stroke-linecap: round; stroke-linejoin: round; }
+  .ill .o { stroke: var(--orange); } .ill .p { stroke: var(--pink); } .ill .g { stroke: var(--green); } .ill .b { stroke: var(--blue); }
+  .ill text { font: 700 17px var(--font); fill: var(--ink); }
+  .ill .tab { font: 600 6px var(--font); fill: var(--muted); }
+
   @media (prefers-reduced-motion: no-preference) {
-    .thanks.pop { animation: pop 0.45s cubic-bezier(.3,1.35,.5,1); transform-origin: 30px 0; }
-    @keyframes pop { from { opacity: 0; transform: translateY(8px) scale(.96); } }
-    .thanks.pop .burst path { stroke-dasharray: 1; stroke-dashoffset: 1; animation: draw 0.4s ease-out forwards; }
-    .thanks.pop .burst path:nth-child(2) { animation-delay: 0.05s; } .thanks.pop .burst path:nth-child(3) { animation-delay: 0.1s; }
-    .thanks.pop .burst path:nth-child(4) { animation-delay: 0.15s; } .thanks.pop .burst path:nth-child(5) { animation-delay: 0.2s; }
+    dialog.guide[open] { animation: guide-in 0.4s cubic-bezier(.3,1.3,.5,1); }
+    dialog.guide[open]::backdrop { animation: fade 0.3s ease-out; }
+    @keyframes guide-in { from { opacity: 0; transform: translateY(14px) scale(.97); } }
+    @keyframes fade { from { opacity: 0; } }
+    dialog.guide[open] .acc { stroke-dasharray: 1; stroke-dashoffset: 1; animation: draw 0.55s cubic-bezier(.3,.6,.4,1) forwards; }
+    dialog.guide[open] .s1 .acc { animation-delay: 0.35s; }
+    dialog.guide[open] .s2 .acc { animation-delay: 0.75s; } dialog.guide[open] .s2 .acc + .acc { animation-delay: 1.2s; animation-duration: 0.2s; }
+    dialog.guide[open] .s3 .acc { animation-delay: 1.35s; } dialog.guide[open] .s3 .acc + .acc { animation-delay: 1.75s; }
+    dialog.guide[open] .s3 .acc + .acc + .acc { animation-delay: 2.2s; animation-duration: 0.2s; }
   }
+  @media (max-width: 640px) {
+    dialog.guide { padding: 24px 18px 18px; }
+    .howto { grid-template-columns: 1fr; gap: 8px; }
+    .howto li { display: grid; grid-template-columns: 112px 1fr; align-items: center; }
+    .howto .pic { height: 100%; display: grid; place-items: center; }
+  }
+
+  /* Optional: get updates inside Blender */
+  .updates-head { margin: 96px 0 0; }
+  .updates .intro { margin: 8px 0 0; font-size: 15px; color: var(--muted); max-width: 62ch; }
+  .up-steps { list-style: none; margin: 18px 0 0; padding: 0; counter-reset: u; max-width: 640px; }
+  .up-steps li { counter-increment: u; position: relative; padding: 0 0 14px 34px; font-size: 15.5px; }
+  .up-steps li::before { content: counter(u); position: absolute; left: 0; top: 0; width: 22px; height: 22px; border-radius: 50%;
+                         display: grid; place-items: center; font-size: 13px; font-weight: 600; background: var(--canvas); color: var(--muted); }
+  .copyrow { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 8px; }
+  .copyrow code { font-size: 13.5px; padding: 6px 10px; border-radius: 6px; background: var(--canvas); color: var(--ink); word-break: break-all; }
+  .copyrow button { font: 550 14px var(--font); padding: 6px 12px; border-radius: 6px; cursor: pointer;
+                    border: 1px solid var(--line); background: var(--panel); color: var(--ink); }
+  .copyrow button:hover { border-color: var(--muted); }
   #feedback { min-height: 1.6em; margin: 6px 0 0; font-size: 15px; font-weight: 550; }
 
   .phone { display: none; margin: 32px 0 0; padding: 16px 18px; border-radius: 10px; background: var(--canvas); }
@@ -260,29 +303,64 @@
     <div class="get" id="buttons">
       <a class="primary" href="https://github.com/MaximumMax01/assemblage-blender/releases/latest" draggable="false">Download from GitHub</a>
     </div>
-    <p class="how"><svg class="doodle up" viewBox="0 0 24 26" aria-hidden="true" style="--d:.9s"><path pathLength="1" d="M5 24 C 3 15, 7 8, 17 4"/><path pathLength="1" d="M10 2.5 L17 4 L14.5 10.5"/></svg><b>Drag the button onto your Blender window</b> and click Install. Then press <span class="ring"><kbd>N</kbd><svg class="doodle" viewBox="0 0 60 34" preserveAspectRatio="none" aria-hidden="true" style="--d:1.4s"><path pathLength="1" d="M34 4 C 18 2, 4 8, 5 18 C 6 28, 26 32, 42 29 C 56 26, 58 12, 46 6 C 40 3, 30 3, 22 5"/></svg></span> in the 3D viewport and open the Assemblage tab.</p>
-    <p class="how first">First time? Blender asks to add Assemblage's repository. Click Add Repository, tick Check for Updates on Start, click Create, then drag the button in again. You can also click the button to download the zip and drag that into Blender instead.</p>
+    <p class="how"><svg class="doodle up" viewBox="0 0 24 26" aria-hidden="true" style="--d:.9s"><path pathLength="1" d="M5 24 C 3 15, 7 8, 17 4"/><path pathLength="1" d="M10 2.5 L17 4 L14.5 10.5"/></svg><b>Click the button for your computer</b>, then drag the downloaded zip into Blender and click Install. Then press <span class="ring"><kbd>N</kbd><svg class="doodle" viewBox="0 0 60 34" preserveAspectRatio="none" aria-hidden="true" style="--d:1.4s"><path pathLength="1" d="M34 4 C 18 2, 4 8, 5 18 C 6 28, 26 32, 42 29 C 56 26, 58 12, 46 6 C 40 3, 30 3, 22 5"/></svg></span> in the 3D viewport and open the Assemblage tab.</p>
     <p class="how" id="version">Free, for Blender 5.2 or newer.</p>
     <p id="feedback" role="status"></p>
 
-    <div class="thanks" id="thanks" hidden>
-      <svg class="burst" viewBox="0 0 64 64" aria-hidden="true">
-        <path pathLength="1" d="M26 18 L22 6" style="stroke: var(--orange)"/>
-        <path pathLength="1" d="M18 24 L6 20" style="stroke: var(--pink)"/>
-        <path pathLength="1" d="M34 18 C 37 12, 40 9, 44 7" style="stroke: var(--blue)"/>
-        <path pathLength="1" d="M18 32 C 12 34, 9 37, 7 41" style="stroke: var(--green)"/>
-        <path pathLength="1" d="M13 11 L15 13" style="stroke: var(--orange)"/>
-      </svg>
-      <button type="button" class="close" id="thanks-close" aria-label="Close">×</button>
-      <h2 id="thanks-title">Thanks for trying Assemblage!</h2>
-      <p id="thanks-next">Now drag the zip from your browser's downloads into Blender, then click Install.</p>
-      <p class="hint">In Chrome and Edge, you can drag it straight from the downloads button near the top right.</p>
+    <dialog class="guide" id="guide" aria-labelledby="guide-title">
+      <button type="button" class="close" id="guide-close" aria-label="Close">×</button>
+      <h2 id="guide-title">Thanks! Your download has started</h2>
+      <p class="lead">Three quick steps to get it into Blender.</p>
+      <ol class="howto">
+        <li class="s1">
+          <span class="pic"><svg class="ill" viewBox="0 0 120 78" aria-hidden="true">
+            <rect class="pn ln" x="8" y="8" width="104" height="62" rx="6"/>
+            <path class="mu" d="M8 21 H112"/>
+            <circle class="mu" cx="16" cy="14.5" r="1.6"/><circle class="mu" cx="22" cy="14.5" r="1.6"/><circle class="mu" cx="28" cy="14.5" r="1.6"/>
+            <path class="ln" d="M99 11.5 v5 m-2.4-2.4 l2.4 2.4 2.4-2.4 M95.5 17.5 h7"/>
+            <rect class="cv mu" x="54" y="26" width="52" height="24" rx="3"/>
+            <rect class="pn ln" x="59" y="31" width="9" height="13" rx="1.5"/><path class="mu" d="M63.5 33 v2 m0 2 v2"/>
+            <path class="mu" d="M73 34 h26 M73 40 h18"/>
+            <path class="acc o" pathLength="1" d="M106 6.5 C 100 2.5, 89.5 4.5, 89 13.5 C 88.5 22.5, 97.5 25.5, 104 23 C 111 20.5, 112 9.5, 101.5 6.8"/>
+          </svg></span>
+          <div class="txt"><h3>Find the zip</h3><p>It's in your browser's downloads. In Chrome and Edge, click the downloads button near the top right.</p></div>
+        </li>
+        <li class="s2">
+          <span class="pic"><svg class="ill" viewBox="0 0 120 78" aria-hidden="true">
+            <path class="pn ln" d="M12 22 h14 l6 6 v24 a2 2 0 0 1 -2 2 h-18 a2 2 0 0 1 -2 -2 v-28 a2 2 0 0 1 2 -2z"/>
+            <path class="mu" d="M26 22 v6 h6 M19 28 v2 m0 3 v2 m0 3 v2"/>
+            <rect class="pn ln" x="62" y="10" width="50" height="58" rx="5"/>
+            <path class="mu" d="M62 19 H112"/><path class="ln" d="M80 40 l7 -4 7 4 v8 l-7 4 -7 -4z M80 40 l7 4 7 -4 M87 44 v8"/>
+            <rect class="mu" x="70" y="26" width="34" height="34" rx="3" stroke-dasharray="3 3"/>
+            <path class="acc p" pathLength="1" d="M34 36 C 44 24, 58 22, 78 38"/>
+            <path class="acc p" pathLength="1" d="M71 37.5 L79 39 L77.5 31"/>
+          </svg></span>
+          <div class="txt"><h3>Drag it into Blender</h3><p>Drop it anywhere on the Blender window, then click Install.</p></div>
+        </li>
+        <li class="s3">
+          <span class="pic"><svg class="ill" viewBox="0 0 120 78" aria-hidden="true">
+            <rect class="pn ln" x="14" y="24" width="32" height="30" rx="5"/>
+            <path class="mu" d="M14 49 H46"/>
+            <text x="30" y="44" text-anchor="middle">N</text>
+            <rect class="pn ln" x="64" y="10" width="48" height="58" rx="5"/>
+            <path class="mu" d="M98 10 V68"/>
+            <rect class="cv mu" x="100" y="15" width="10" height="46" rx="2"/>
+            <text class="tab" x="105" y="38" text-anchor="middle" dominant-baseline="central" transform="rotate(90 105 38)">Assemblage</text>
+            <path class="acc g" pathLength="1" d="M33 21 C 20 19, 9 26, 10 39 C 11 52, 25 58, 38 56 C 50 54, 52 38, 44 28 C 41 24, 36 22, 30 22.5"/>
+            <path class="acc b" pathLength="1" d="M50 33 C 64 22, 84 20, 96 29"/>
+            <path class="acc b" pathLength="1" d="M88.5 27.5 L96.5 29.5 L93.5 22"/>
+          </svg></span>
+          <div class="txt"><h3>Open the panel</h3><p>In the 3D viewport, press N and open the Assemblage tab.</p></div>
+        </li>
+      </ol>
+      <p class="small">Did Safari unzip it? Right-click the download button and choose Download Linked File.</p>
       <div class="actions">
-        <button type="button" class="main" id="share-friend">Share with a friend</button>
+        <button type="button" class="main" id="guide-done" autofocus>Got it</button>
+        <button type="button" id="share-friend">Share with a friend</button>
         <a href="https://github.com/MaximumMax01/assemblage-blender">Star it on GitHub</a>
       </div>
       <p id="share-note" role="status"></p>
-    </div>
+    </dialog>
   </header>
 
   <section aria-labelledby="using">
@@ -332,6 +410,18 @@
     </div>
   </section>
 
+  <section class="updates updates-head" aria-labelledby="updates">
+    <h2 id="updates">Get updates inside Blender</h2>
+    <p class="intro">Optional. Add Assemblage's repository to Blender once, and it tells you when there's a new version.</p>
+    <ol class="up-steps">
+      <li>Copy the repository address.
+        <span class="copyrow"><code id="repo-url">index.json, next to this page</code><button type="button" id="copy-repo" hidden>Copy</button></span></li>
+      <li>In Blender, open Preferences &gt; Get Extensions. Open the Repositories menu, click +, and choose Add Remote Repository.</li>
+      <li>Paste the address, tick Check for Updates on Start, and click Create.</li>
+    </ol>
+    <p class="intro">Assemblage then appears in Get Extensions, ready to install or update. If you already installed it from a zip, uninstall that copy first and install it again from there.</p>
+  </section>
+
   <section class="text notes-head" aria-labelledby="notes" style="max-width: none">
     <h2 id="notes">Good to know</h2>
     <div class="notes">
@@ -341,8 +431,7 @@
       <div><h3>Whose images these are</h3><p>Images belong to their owners. Use them as references, not in published work.</p></div>
       <div><h3>Requirements</h3><p>Blender 5.2 or newer, on 64-bit Windows or macOS 14+ on Apple Silicon. Allow online access when Blender asks, or turn it on in Preferences &gt; System &gt; Network.</p></div>
       <div><h3>If Safari unzips the download</h3><p>Blender needs the zip itself. In Safari, if the download unzips itself, right-click the button and choose Download Linked File.</p></div>
-      <div><h3>Why Blender asks about a repository</h3><p>Blender only installs dragged links from repositories you've added. Assemblage's repository is a list of its releases, hosted on this site. Adding it once lets you install by dragging and lets Blender check for new versions.</p></div>
-      <div><h3>Updating</h3><p>If you added the repository with Check for Updates on Start ticked, Blender tells you when there's a new version. Otherwise, come back and drag the newest version in.</p></div>
+      <div><h3>Updating</h3><p>Download the newest version from this page and drag it into Blender. Or add the repository, as above, and Blender tells you when there's an update.</p></div>
       <div><h3>Cost</h3><p>Free and open source, under GPL-3.0-or-later.</p></div>
     </div>
   </section>
@@ -390,10 +479,9 @@
   }
 
   // Builds one download button per zip in index.json. The visitor's own system
-  // gets the main button. Dragging a button into Blender installs it. The link
-  // names this site's index.json as its repository, so the first time Blender
-  // can offer to add that repository with the URL filled in. Clicking downloads
-  // the zip instead.
+  // gets the main button. Clicking downloads the zip and opens the install
+  // guide. The links also name this site's index.json as their repository, so
+  // people who have added the repository can drag a button straight in.
   // Works out this site's index.json address. In a preview with no real web
   // address (such as about:srcdoc) there isn't one, so links go without it.
   const REPOSITORY = (() => {
@@ -439,27 +527,37 @@
     catch (e) { report("Copy this link: " + page.url); }
   }
 
-  // Thank-you card, shown after a drag out of the page or a click to download.
-  const thanks = document.getElementById("thanks");
-  const NEXT = {
-    drag: ["Blender should now ask you to install it. Click Install, then press N in the 3D viewport and open the Assemblage tab.",
-           "First time? Click Add Repository, tick Check for Updates on Start, click Create, then drag the button in again."],
-    click: ["Now drag the zip from your browser's downloads into Blender, then click Install.",
-            "In Chrome and Edge, you can drag it straight from the downloads button near the top right."]
-  };
-  function showThanks(how) {
+  // Install guide, opened when a download button is clicked.
+  const guide = document.getElementById("guide");
+  function openGuide() {
     say("");
-    document.getElementById("thanks-next").textContent = NEXT[how][0];
-    document.querySelector("#thanks .hint").textContent = NEXT[how][1];
     document.getElementById("share-note").textContent = "";
-    thanks.hidden = false;
-    thanks.classList.remove("pop"); void thanks.offsetWidth; thanks.classList.add("pop");
+    if (guide.open) return;
+    if (typeof guide.showModal === "function") guide.showModal(); else guide.setAttribute("open", "");
   }
-  document.getElementById("thanks-close").addEventListener("click", () => { thanks.hidden = true; });
+  function closeGuide() { if (typeof guide.close === "function") guide.close(); else guide.removeAttribute("open"); }
+  document.getElementById("guide-close").addEventListener("click", closeGuide);
+  document.getElementById("guide-done").addEventListener("click", closeGuide);
+  guide.addEventListener("click", e => {  // a click on the dimmed backdrop closes it
+    const r = guide.getBoundingClientRect();
+    if (e.clientX < r.left || e.clientX > r.right || e.clientY < r.top || e.clientY > r.bottom) closeGuide();
+  });
   document.getElementById("share-friend").addEventListener("click", () =>
     sharePage({ title: "Assemblage", text: "A free Blender extension that builds a reference board for whatever you're modelling." },
               "Link copied. Send it to someone who models.",
               t => { document.getElementById("share-note").textContent = t; }));
+
+  // Repository address for the "Get updates inside Blender" steps.
+  if (REPOSITORY) {
+    const copyButton = document.getElementById("copy-repo");
+    document.getElementById("repo-url").textContent = REPOSITORY;
+    copyButton.hidden = false;
+    copyButton.addEventListener("click", async () => {
+      try { await navigator.clipboard.writeText(REPOSITORY); copyButton.textContent = "Copied"; }
+      catch (e) { copyButton.textContent = "Select and copy the address"; }
+      setTimeout(() => { copyButton.textContent = "Copy"; }, 2000);
+    });
+  }
 
   fetch("index.json")
     .then(response => response.json())
@@ -494,20 +592,13 @@
         if (i === 0) {
           const alt = document.createElement("span");
           alt.className = "alt";
-          alt.textContent = "drag or click";
+          alt.textContent = "download zip";
           meta.append(alt);
         }
         a.insertAdjacentHTML("afterbegin", DOWNLOAD_ICON);
         a.append(label, meta);
-        a.title = "Drag into Blender to install, or click to download the zip";
-        a.addEventListener("dragstart", () => say("Drop it anywhere on the Blender window."));
-        a.addEventListener("dragend", e => {
-          // Dropped back onto this page, or cancelled with Esc: no thanks yet.
-          const onPage = e.clientX > 0 && e.clientY > 0 && e.clientX < innerWidth && e.clientY < innerHeight;
-          if (e.dataTransfer.dropEffect === "none" && onPage) { say("Drop it on the Blender window to install."); return; }
-          showThanks("drag");
-        });
-        a.addEventListener("click", () => showThanks("click"));
+        a.title = `Download the zip for ${name}`;
+        a.addEventListener("click", openGuide);
         box.appendChild(a);
       });
       document.getElementById("version").textContent =
